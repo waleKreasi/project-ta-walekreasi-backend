@@ -3,7 +3,6 @@ require("dotenv").config();
 const User = require("../../models/User");
 const Notification = require("../../models/Notification"); // ✅ Import model notifikasi
 const admin = require("firebase-admin");
-const serviceAccount = require("../../config/firebase-adminsdk.json");
 
 if (!admin.apps.length) {
   const serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_CONFIG);
