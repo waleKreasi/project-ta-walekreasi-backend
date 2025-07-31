@@ -15,7 +15,7 @@ async function imageUploadUtil(fileBuffer, mimetype) {
 
   const result = await cloudinary.uploader.upload(base64Image, {
     resource_type: "auto",
-    folder: "banner",
+    // folder: "banner",
   });
 
   return result;
