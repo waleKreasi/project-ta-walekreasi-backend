@@ -10,8 +10,9 @@ const uploadBanner = async (req, res) => {
       return res.status(400).json({ success: false, message: "Gambar tidak ditemukan" });
     }
 
-    // Kirim buffer dan mimetype ke util (bukan string base64)
-    const uploaded = await imageUploadUtil(req.file.buffer, req.file.mimetype);
+    const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+
+    const uploaded = await imageUploadUtil(base64Image);
 
     const newBanner = new Banner({
       type,
@@ -28,12 +29,8 @@ const uploadBanner = async (req, res) => {
       data: newBanner,
     });
   } catch (err) {
-    console.error("Upload Banner Error:", err.message);
-    res.status(500).json({
-      success: false,
-      message: "Gagal upload banner",
-      error: err.message,
-    });
+    console.error("Upload Banner Error:", err.message); 
+    res.status(500).json({ success: false, message: "Gagal upload banner", error: err.message });
   }
 };
 

@@ -10,12 +10,9 @@ cloudinary.config({
 });
 const storage = new multer.memoryStorage();
 
-async function imageUploadUtil(fileBuffer, mimetype) {
-  const base64Image = `data:${mimetype};base64,${fileBuffer.toString("base64")}`;
-
-  const result = await cloudinary.uploader.upload(base64Image, {
+async function imageUploadUtil(file) {
+  const result = await cloudinary.uploader.upload(file, {
     resource_type: "auto",
-    // folder: "banner",
   });
 
   return result;
