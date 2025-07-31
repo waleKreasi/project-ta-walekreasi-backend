@@ -1,18 +1,16 @@
-require("dotenv").config(); // Tambahkan ini di paling atas kalau belum
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../../models/User");
-const Seller = require ('../../models/Seller');
+const Seller = require("../../models/Seller");
 
-
-//register
+// Register user
 const registerUser = async (req, res) => {
   const { userName, email, password, phoneNumber } = req.body;
 
   try {
     const checkUser = await User.findOne({ email });
     if (checkUser)
-      return res.json({
+      return res.status(400).json({
         success: false,
         message: "User Already exists with the same email! Please try again",
       });
@@ -26,7 +24,7 @@ const registerUser = async (req, res) => {
     });
 
     await newUser.save();
-    res.status(200).json({
+    res.status(201).json({
       success: true,
       message: "Registration successful",
     });
@@ -34,12 +32,12 @@ const registerUser = async (req, res) => {
     console.log(e);
     res.status(500).json({
       success: false,
-      message: "Some error occured",
+      message: "Some error occurred",
     });
   }
 };
 
-// registrasi seller (pakai model Seller baru)
+// Register seller
 const registerSeller = async (req, res) => {
   const {
     sellerName,
@@ -56,11 +54,10 @@ const registerSeller = async (req, res) => {
     bankAccountNumber,
     eWalletsAccountOwner,
     eWallet,
-    eWalletAccountNumber
+    eWalletAccountNumber,
   } = req.body;
 
   try {
-    // Cek apakah user sudah terdaftar dengan email yang sama
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({
@@ -69,7 +66,6 @@ const registerSeller = async (req, res) => {
       });
     }
 
-    // Buat user baru dengan role seller
     const hashedPassword = await bcrypt.hash(password, 12);
     const newUser = new User({
       userName: sellerName,
@@ -80,7 +76,6 @@ const registerSeller = async (req, res) => {
     });
     await newUser.save();
 
-    // Buat entri seller
     const newSeller = new Seller({
       user: newUser._id,
       sellerName,
@@ -97,7 +92,7 @@ const registerSeller = async (req, res) => {
       bankAccountNumber,
       eWalletsAccountOwner,
       eWallet,
-      eWalletAccountNumber
+      eWalletAccountNumber,
     });
     await newSeller.save();
 
@@ -120,26 +115,21 @@ const registerSeller = async (req, res) => {
   }
 };
 
-
-
-// login
+// Login
 const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
   try {
     const checkUser = await User.findOne({ email });
     if (!checkUser)
-      return res.json({
+      return res.status(404).json({
         success: false,
         message: "Pengguna tidak ditemukan! Silahkan Mendaftar.",
       });
 
-    const checkPasswordMatch = await bcrypt.compare(
-      password,
-      checkUser.password
-    );
+    const checkPasswordMatch = await bcrypt.compare(password, checkUser.password);
     if (!checkPasswordMatch)
-      return res.json({
+      return res.status(401).json({
         success: false,
         message: "Kata Sandi salah! Silahkan Coba Lagi.",
       });
@@ -150,18 +140,17 @@ const loginUser = async (req, res) => {
         role: checkUser.role,
         email: checkUser.email,
         name: checkUser.userName,
-        phoneNumber: checkUser.phoneNumber 
+        phoneNumber: checkUser.phoneNumber,
       },
-      process.env.JWT_KEY,
+      "PTA|HPL|wkPWA-2025",
       { expiresIn: "60m" }
     );
 
     res.cookie("token", token, {
       httpOnly: true,
-      secure: true,        
-      sameSite: "None",   
-      maxAge: 1000 * 60 * 60 * 24,
-    }).json({
+      secure: true,
+      sameSite: "None",
+    }).status(200).json({
       success: true,
       message: "Berhasil Masuk !",
       user: {
@@ -169,7 +158,7 @@ const loginUser = async (req, res) => {
         role: checkUser.role,
         id: checkUser._id,
         name: checkUser.userName,
-        phoneNumber: checkUser.phoneNumber
+        phoneNumber: checkUser.phoneNumber,
       },
     });
   } catch (e) {
@@ -181,15 +170,19 @@ const loginUser = async (req, res) => {
   }
 };
 
-// logout
+// Logout
 const logoutUser = (req, res) => {
-  res.clearCookie("token").json({
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "None",
+  }).json({
     success: true,
     message: "Berhasil Keluar !",
   });
 };
 
-// auth middleware
+// Middleware
 const authMiddleware = async (req, res, next) => {
   const token = req.cookies.token;
   if (!token)
@@ -199,19 +192,18 @@ const authMiddleware = async (req, res, next) => {
     });
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_KEY);
+    const decoded = jwt.verify(token, "PTA|HPL|wkPWA-2025");
     req.user = decoded;
     console.log("Decoded JWT:", req.user);
     next();
   } catch (error) {
     res.status(401).json({
       success: false,
-      message: "Akses ditolak. Anda tidak memiliki izin untuk melakukan tindakan ini.",
+      message: "Akses ditolak. Token tidak valid.",
     });
   }
 };
 
-// Mengecek apakah user sudah login
 const isAuthenticated = (req, res, next) => {
   if (req.user) {
     next();
@@ -220,12 +212,11 @@ const isAuthenticated = (req, res, next) => {
       success: false,
       message: "Anda harus login terlebih dahulu.",
     });
-  };
+  }
 };
 
-// Mengecek apakah user adalah seller
 const isSeller = (req, res, next) => {
-  if (req.user && req.user.role === "seller") {
+  if (req.user?.role === "seller") {
     next();
   } else {
     return res.status(403).json({
@@ -235,9 +226,8 @@ const isSeller = (req, res, next) => {
   }
 };
 
-// Mengecek apakah user adalah admin
 const isAdmin = (req, res, next) => {
-  if (req.user && req.user.role === "admin") {
+  if (req.user?.role === "admin") {
     next();
   } else {
     return res.status(403).json({
@@ -247,11 +237,9 @@ const isAdmin = (req, res, next) => {
   }
 };
 
-
-
 module.exports = {
   registerUser,
-  registerSeller, 
+  registerSeller,
   loginUser,
   logoutUser,
   authMiddleware,
