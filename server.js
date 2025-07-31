@@ -1,11 +1,9 @@
 require("dotenv").config();
-
 const express = require("express");
 const mongoose = require("mongoose");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 
-// Route imports...
 const authRouter = require("./routes/auth/auth-routes");
 const SellerProductsRouter = require("./routes/seller/products-routes");
 const SellerOrderRouter = require("./routes/seller/order-routes");
@@ -18,32 +16,19 @@ const shopSearchRouter = require("./routes/shop/search-routes");
 const shopReviewRouter = require("./routes/shop/review-routes");
 const shopStoreRouter = require("./routes/shop/store-routes");
 const payoutRoutes = require("./routes/admin/payout-routes");
-const adminDashboardRoutes = require ("./routes/admin/dashboard-route");
-const infoRoutes = require ("./routes/admin/Info-routes");
+const adminDashboardRoutes = require("./routes/admin/dashboard-route");
+const infoRoutes = require("./routes/admin/Info-routes");
 const bannerRoutes = require("./routes/admin/banner-route");
 const notificationRoutes = require("./routes/common/notification-routes");
-
-
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB connected"))
-  .catch((error) => console.log(error));
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ✅ Raw body parser khusus untuk Midtrans webhook
-app.use("/api/shop/order/midtrans-callback", express.raw({ type: "*/*" }));
-
-// ✅ JSON parser untuk semua route lainnya
-app.use(express.json());
-
-app.use(cookieParser());
-
+// ✅ CORS Setup
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:4173",
-  "https://walekreasi.vercel.app"
+  "https://walekreasi.vercel.app",
 ];
 
 app.use(cors({
@@ -55,13 +40,31 @@ app.use(cors({
     }
   },
   methods: ["GET", "POST", "DELETE", "PUT"],
-  allowedHeaders: ["Content-Type", "Authorization", "Cache-Control", "Expires", "Pragma"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "Cache-Control",
+    "Expires",
+    "Pragma",
+  ],
   credentials: true,
 }));
 
+// ✅ Middleware global
+app.use(cookieParser());
 
+// ✅ Midtrans Webhook: Raw body hanya di path tertentu
+app.use("/api/shop/order/midtrans-callback", express.raw({ type: "*/*" }));
 
-// Route setup
+// ✅ Semua route lain pakai JSON body
+app.use(express.json());
+
+// ✅ MongoDB Connection
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB connected"))
+  .catch((error) => console.error("MongoDB connection error:", error));
+
+// ✅ API Routes
 app.use("/api/auth", authRouter);
 app.use("/api/store/products", SellerProductsRouter);
 app.use("/api/store/orders", SellerOrderRouter);
@@ -74,12 +77,15 @@ app.use("/api/shop/search", shopSearchRouter);
 app.use("/api/shop/review", shopReviewRouter);
 app.use("/api/shop/store", shopStoreRouter);
 app.use("/api/admin/payout", payoutRoutes);
-app.use("/api/admin/dashboard" , adminDashboardRoutes);
-app.use("/api/admin/info" , infoRoutes);
+app.use("/api/admin/dashboard", adminDashboardRoutes);
+app.use("/api/admin/info", infoRoutes);
 app.use("/api/admin/banner", bannerRoutes);
 app.use("/api/admin/notification", notificationRoutes);
 
+// ✅ Default response
+app.get("/", (req, res) => {
+  res.send("API is running...");
+});
 
-
-
-app.listen(PORT, () => console.log(`Server is now running on port ${PORT}`));
+// ✅ Start Server
+app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
