@@ -28,12 +28,13 @@ exports.sendNotificationToCustomerByOrderStatus = async (orderId, status) => {
 
     // Simpan riwayat notifikasi
     await Notification.create({
-      userId: customer._id,
+      userId: String(customer._id),
       orderId: order._id,
       title: payload.title,
       body: payload.body,
       sentAt: new Date(),
     });
+    
 
     console.log(`✅ Notifikasi berhasil dikirim ke customer (${customer.email || customer._id})`);
   } catch (error) {
