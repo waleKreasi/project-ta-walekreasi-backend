@@ -1,94 +1,34 @@
-require("dotenv").config();
-
+const Order = require("../../models/Order");
 const User = require("../../models/User");
-const Notification = require("../../models/Notification"); // ✅ Import model notifikasi
-const admin = require("firebase-admin");
+const Notification = require("../../models/Notification");
+const sendNotification = require("../../utils/sendNotification");
 
-if (!admin.apps.length) {
-  const serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_CONFIG);
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-}
-
-// ✅ Simpan FCM Token user
-exports.saveFcmToken = async (req, res) => {
-  const userId = req.user?._id || req.body.userId;
-  const { fcmToken } = req.body;
-
-  if (!userId || !fcmToken || fcmToken.trim() === "") {
-    return res.status(400).json({ message: "User ID dan FCM token wajib diisi." });
-  }
-
+exports.sendNotificationToCustomerByOrderStatus = async (orderId, status) => {
   try {
-    await User.findByIdAndUpdate(userId, { fcmToken }, { new: true });
-    res.status(200).json({ message: "Token berhasil disimpan." });
-  } catch (error) {
-    console.error("❌ Gagal menyimpan token:", error);
-    res.status(500).json({ message: "Gagal menyimpan token.", error: error.message });
-  }
-};
-
-// ✅ Kirim notifikasi ke semua customer dan simpan ke riwayat
-exports.sendNotificationToCustomers = async (req, res) => {
-  try {
-    const { title, body } = req.body;
-
-    if (!title || !body) {
-      return res.status(400).json({ message: "Judul dan isi notifikasi wajib diisi." });
+    const order = await Order.findById(orderId).populate("userId");
+    if (!order || !order.userId?.fcmToken) {
+      console.log("❌ Order atau FCM Token customer tidak ditemukan.");
+      return;
     }
 
-    const customers = await User.find({
-      role: "customer",
-      fcmToken: { $exists: true, $ne: null },
-    });
-
-    const tokens = customers.map((user) => user.fcmToken).filter(Boolean);
-
-    if (tokens.length === 0) {
-      return res.status(400).json({ message: "Tidak ada customer dengan FCM token." });
-    }
-
-    const message = {
-      notification: { title, body },
-      tokens,
+    const customer = order.userId;
+    const payload = {
+      title: "Status Pesanan Anda",
+      body: `Pesanan Anda kini berstatus: ${status}`,
     };
 
-    const response = await admin.messaging().sendEachForMulticast(message);
-    console.log("📨 Notifikasi terkirim:", response);
+    // Kirim notifikasi ke token milik customer
+    await sendNotification(customer.fcmToken, payload);
 
-    // ✅ Simpan ke riwayat notifikasi
-    await Notification.create({ title, body });
-
-    res.status(200).json({
-      message: `Notifikasi dikirim ke ${response.successCount} dari ${tokens.length} customer.`,
+    // Simpan riwayat notifikasi
+    await Notification.create({
+      title: payload.title,
+      body: payload.body,
+      sentAt: new Date(),
     });
-  } catch (error) {
-    console.error("❌ Gagal mengirim notifikasi:", error);
-    res.status(500).json({
-      message: "Gagal mengirim notifikasi.",
-      error: error.message || "Unknown error",
-    });
-  }
-};
 
-// ✅ Ambil daftar riwayat notifikasi
-exports.getNotificationHistory = async (req, res) => {
-  try {
-    const history = await Notification.find().sort({ createdAt: -1 });
-    res.status(200).json(history);
+    console.log(`✅ Notifikasi berhasil dikirim ke customer (${customer.email || customer._id})`);
   } catch (error) {
-    console.error("❌ Gagal mengambil riwayat notifikasi:", error);
-    res.status(500).json({ message: "Gagal mengambil riwayat notifikasi." });
-  }
-};
-// ✅ Hapus semua riwayat notifikasi
-exports.clearNotificationHistory = async (req, res) => {
-  try {
-    await Notification.deleteMany({});
-    res.status(200).json({ message: "Semua riwayat notifikasi berhasil dihapus." });
-  } catch (error) {
-    console.error("❌ Gagal menghapus riwayat:", error);
-    res.status(500).json({ message: "Gagal menghapus riwayat notifikasi." });
+    console.error("❌ Gagal kirim notifikasi ke customer:", error.message);
   }
 };

@@ -1,4 +1,6 @@
 const Order = require("../../models/Order");
+const User = require("../../models/User"); // pastikan ini ada
+const sendNotification = require("../../helpers/fcm"); // sesuaikan path jika berbeda
 
 const getAllOrdersOfAllUsers = async (req, res) => {
   try {
@@ -50,11 +52,18 @@ const getOrderDetailsForSeller = async (req, res) => {
   }
 };
 
-
 const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { orderStatus } = req.body;
+
+    const validStatuses = ["Menunggu Konfirmasi", "Diproses", "Dikirim", "Selesai", "Dibatalkan"];
+    if (!validStatuses.includes(orderStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "Status pesanan tidak valid!",
+      });
+    }
 
     const order = await Order.findById(id);
 
@@ -67,18 +76,33 @@ const updateOrderStatus = async (req, res) => {
 
     await Order.findByIdAndUpdate(id, { orderStatus });
 
-    res.status(200).json({
+    const user = await User.findById(order.userId);
+
+    if (user?.fcmToken) {
+      await sendNotification(user.fcmToken, {
+        title: "Status Pesanan",
+        body: `Hai! Pesanan kamu sekarang: ${orderStatus}`,
+        data: {
+          orderId: id,
+          type: "ORDER_UPDATE",
+        },
+      });
+    }
+
+    return res.status(200).json({
       success: true,
       message: "Status pesanan berhasil diperbarui!",
     });
   } catch (e) {
     console.log(e);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Terjadi Kesalahan!",
     });
   }
 };
+
+
 
 module.exports = {
   getAllOrdersOfAllUsers,
