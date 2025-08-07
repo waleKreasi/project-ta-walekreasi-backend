@@ -80,7 +80,7 @@ app.use("/api/admin/payout", payoutRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
 app.use("/api/admin/info", infoRoutes);
 app.use("/api/admin/banner", bannerRoutes);
-app.use("/api/admin/notification", notificationRoutes);
+app.use("/api/notification", notificationRoutes);
 
 // ✅ Default response
 app.get("/", (req, res) => {
