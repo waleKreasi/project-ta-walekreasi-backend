@@ -5,6 +5,11 @@ const sendNotification = require("../../helpers/fcm");
 
 exports.sendNotificationToCustomerByOrderStatus = async (orderId, status) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      console.warn("❌ orderId tidak valid:", orderId);
+      return;
+    }
+
     const order = await Order.findById(orderId).populate("userId");
 
     if (!order) {
@@ -14,9 +19,8 @@ exports.sendNotificationToCustomerByOrderStatus = async (orderId, status) => {
 
     const customer = order.userId;
 
-    // Validasi bahwa hasil populate berhasil
     if (!customer || !mongoose.Types.ObjectId.isValid(customer._id)) {
-      console.warn("❌ Data customer tidak valid atau tidak terpopulate:", customer);
+      console.warn("❌ Data customer tidak valid:", customer);
       return;
     }
 
@@ -28,14 +32,16 @@ exports.sendNotificationToCustomerByOrderStatus = async (orderId, status) => {
     const payload = {
       title: "Status Pesanan Anda",
       body: `Pesanan Anda kini berstatus: ${status}`,
+      data: {
+        orderId: order._id.toString(),
+        type: "ORDER_UPDATE",
+      },
     };
 
-    // Kirim notifikasi
     await sendNotification(customer.fcmToken, payload);
 
-    // Simpan notifikasi ke database
     await Notification.create({
-      userId: customer._id, // sekarang sudah dipastikan valid
+      userId: customer._id,
       orderId: order._id,
       title: payload.title,
       body: payload.body,
