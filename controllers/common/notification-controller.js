@@ -1,7 +1,7 @@
 const Order = require("../../models/Order");
 const User = require("../../models/User");
 const Notification = require("../../models/Notification");
-const sendNotification = require("../../utils/sendNotification");
+const sendNotification = require("../../helpers/fcm");
 
 exports.sendNotificationToCustomerByOrderStatus = async (orderId, status) => {
   try {
