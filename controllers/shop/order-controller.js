@@ -146,14 +146,17 @@ const capturePayment = async (req, res) => {
 // Webhook Midtrans
 const midtransCallback = async (req, res) => {
   try {
-    const { order_id, transaction_status } = req.body;
+    const rawBody = req.body.toString("utf8");
+    const { order_id, transaction_status } = JSON.parse(rawBody);
+
+    console.log("Midtrans callback received:", { order_id, transaction_status });
 
     const order = await Order.findById(order_id);
     if (!order) return res.status(404).send("Pesanan tidak ditemukan.");
 
     if (["settlement", "capture"].includes(transaction_status)) {
       order.paymentStatus = "Terbayar";
-      order.orderStatus = 'processing'; 
+      order.orderStatus = "processing";
       order.orderUpdateDate = new Date();
 
       await Cart.findByIdAndDelete(order.cartId);
@@ -166,6 +169,7 @@ const midtransCallback = async (req, res) => {
     res.status(500).send("Gagal memproses callback.");
   }
 };
+
 
 // Mendapatkan semua pesanan berdasarkan user
 const getAllOrdersByUser = async (req, res) => {
