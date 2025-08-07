@@ -1,5 +1,5 @@
 const Order = require("../../models/Order");
-const { sendNotificationToCustomerByOrderStatus } = require("../notification/notification-controller");
+const { sendNotificationToCustomerByOrderStatus } = require("../common/notification-controller");
 
 const getAllOrdersOfAllUsers = async (req, res) => {
   try {
