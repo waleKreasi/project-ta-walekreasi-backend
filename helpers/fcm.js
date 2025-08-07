@@ -1,6 +1,4 @@
 const admin = require("firebase-admin");
-
-// Inisialisasi Firebase Admin
 const serviceAccount = require("../config/firebase-adminsdk.json");
 
 if (!admin.apps.length) {

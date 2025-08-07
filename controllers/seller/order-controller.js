@@ -1,6 +1,6 @@
 const Order = require("../../models/Order");
-const User = require("../../models/User"); // pastikan ini ada
-const sendNotification = require("../../helpers/fcm"); // sesuaikan path jika berbeda
+const User = require("../../models/User");
+const sendNotification = require("../../helpers/fcm");
 
 const getAllOrdersOfAllUsers = async (req, res) => {
   try {
