@@ -1,5 +1,7 @@
 const admin = require("firebase-admin");
-const serviceAccount = require("../config/firebase-adminsdk.json");
+
+// Ambil dari environment variable
+const serviceAccount = JSON.parse(process.env.FIREBASE_CONFIG); // Ubah di Railway
 
 if (!admin.apps.length) {
   admin.initializeApp({

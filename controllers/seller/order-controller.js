@@ -79,20 +79,26 @@ const updateOrderStatus = async (req, res) => {
     const user = await User.findById(order.userId);
 
     if (user?.fcmToken) {
-      await sendNotification(user.fcmToken, {
-        title: "Status Pesanan",
-        body: `Hai! Pesanan kamu sekarang: ${orderStatus}`,
-        data: {
-          orderId: id,
-          type: "ORDER_UPDATE",
-        },
-      });
+      try {
+        await sendNotification(user.fcmToken, {
+          title: "Status Pesanan",
+          body: `Hai! Pesanan kamu sekarang: ${orderStatus}`,
+          data: {
+            orderId: id,
+            type: "ORDER_UPDATE",
+          },
+        });
+      } catch (notificationErr) {
+        console.error("Notifikasi gagal:", notificationErr.message);
+        // Biarkan jalan terus tanpa return error
+      }
     }
 
     return res.status(200).json({
       success: true,
       message: "Status pesanan berhasil diperbarui!",
     });
+
   } catch (e) {
     console.log(e);
     return res.status(500).json({
@@ -101,6 +107,7 @@ const updateOrderStatus = async (req, res) => {
     });
   }
 };
+
 
 
 
