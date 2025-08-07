@@ -57,7 +57,7 @@ const updateOrderStatus = async (req, res) => {
     const { id } = req.params;
     const { orderStatus } = req.body;
 
-    const validStatuses = ["Menunggu Konfirmasi", "Diproses", "Dikirim", "Selesai", "Dibatalkan"];
+    const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'rejected'];
     if (!validStatuses.includes(orderStatus)) {
       return res.status(400).json({
         success: false,

@@ -58,7 +58,7 @@ const createOrder = async (req, res) => {
       cartId,
       cartItems: updatedCartItems,
       addressInfo: formattedAddressInfo,
-      orderStatus: "Menunggu Konfirmasi", // ✅ enum standardized
+      orderStatus: "pending", // ✅ enum standardized
       paymentStatus: "Belum Dibayar",
       totalAmount,
       orderDate: new Date(),
@@ -115,7 +115,7 @@ const capturePayment = async (req, res) => {
 
     if (["settlement", "capture"].includes(transactionStatus)) {
       order.paymentStatus = "Terbayar";
-      order.orderStatus = "Diproses";
+      order.orderStatus = 'processing';
       order.orderUpdateDate = new Date();
 
       for (let item of order.cartItems) {
@@ -153,7 +153,7 @@ const midtransCallback = async (req, res) => {
 
     if (["settlement", "capture"].includes(transaction_status)) {
       order.paymentStatus = "Terbayar";
-      order.orderStatus = "Diproses"; 
+      order.orderStatus = 'processing'; 
       order.orderUpdateDate = new Date();
 
       await Cart.findByIdAndDelete(order.cartId);
