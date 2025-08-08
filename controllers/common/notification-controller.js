@@ -1,60 +1,66 @@
-const mongoose = require("mongoose");
+const admin = require("firebase-admin");
 const Order = require("../../models/Order");
-const Notification = require("../../models/Notification");
-const sendNotification = require("../../helpers/fcm");
+const User = require("../../models/User");
 
-exports.sendNotificationToCustomerByOrderStatus = async (orderId, status) => {
-
-  console.log("DEBUG >> orderId received:", orderId);
-  console.log("DEBUG >> typeof orderId:", typeof orderId);
-  console.log("DEBUG >> isValidObjectId:", mongoose.Types.ObjectId.isValid(orderId));
-  
+const sendNotificationToCustomerByOrderStatus = async (orderId, status) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(orderId)) {
-      console.warn("❌ orderId tidak valid:", orderId);
-      return;
-    }
+    console.log("✅ Running sendNotificationToCustomerByOrderStatus");
 
     const order = await Order.findById(orderId).populate("userId");
-
-    if (!order) {
-      console.warn("❌ Order tidak ditemukan:", orderId);
+    if (!order || !order.userId) {
+      console.log("❌ Order or user not found");
       return;
     }
 
-    const customer = order.userId;
-
-    if (!customer || !mongoose.Types.ObjectId.isValid(customer._id)) {
-      console.warn("❌ Data customer tidak valid:", customer);
+    const fcmToken = order.userId.fcmToken;
+    if (!fcmToken) {
+      console.log("❌ FCM token not available for user");
       return;
     }
 
-    if (!customer?.fcmToken) {
-      console.warn("❌ FCM Token customer tidak tersedia:", customer._id);
-      return;
-    }
-
-    const payload = {
-      title: "Status Pesanan Anda",
-      body: `Pesanan Anda kini berstatus: ${status}`,
+    const message = {
+      token: fcmToken,
+      notification: {
+        title: "Status Pesanan Diperbarui",
+        body: `Pesanan Anda sekarang berstatus ${status}`,
+      },
       data: {
-        orderId: order._id.toString(),
-        type: "ORDER_UPDATE",
+        orderId: orderId.toString(),
+        status: status,
       },
     };
 
-    await sendNotification(customer.fcmToken, payload);
-
-    await Notification.create({
-      userId: customer._id,
-      orderId: order._id,
-      title: payload.title,
-      body: payload.body,
-      sentAt: new Date(),
-    });
-
-    console.log(`✅ Notifikasi berhasil dikirim ke customer (${customer.email || customer._id})`);
+    const response = await admin.messaging().send(message);
+    console.log("✅ Notifikasi berhasil dikirim:", response);
   } catch (error) {
-    console.error("❌ Gagal kirim notifikasi ke customer:", error.message);
+    console.error("❌ Gagal mengirim notifikasi:", error.message);
   }
+};
+
+// ✅ handler POST /save-token
+const sendNotificationHandler = async (req, res) => {
+  try {
+    const userId = req.user.id; // dari middleware auth
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ success: false, message: "Token FCM tidak tersedia" });
+    }
+
+    const user = await User.findByIdAndUpdate(userId, { fcmToken: token }, { new: true });
+
+    res.status(200).json({
+      success: true,
+      message: "Token FCM berhasil disimpan",
+      user,
+    });
+  } catch (error) {
+    console.error("❌ Gagal menyimpan token:", error.message);
+    res.status(500).json({ success: false, message: "Gagal menyimpan token" });
+  }
+};
+
+module.exports = {
+  sendNotificationToCustomerByOrderStatus,
+  sendNotificationHandler,
 };

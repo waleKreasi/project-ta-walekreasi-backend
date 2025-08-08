@@ -1,10 +1,10 @@
 const express = require("express");
+const { sendNotificationHandler } = require("../../controllers/common/notification-controller");
+const authMiddleware = require("../../controllers/auth/auth-controller");
+
 const router = express.Router();
-const { sendNotificationToCustomerByOrderStatus } = require("../../controllers/common/notification-controller");
-const { authMiddleware } = require("../../controllers/auth/auth-controller");
 
-router.post("/save-token", authMiddleware, sendNotificationToCustomerByOrderStatus);
-
-
+// ✅ POST /api/notification/save-token
+router.post("/save-token", authMiddleware, sendNotificationHandler);
 
 module.exports = router;
