@@ -4,6 +4,11 @@ const Notification = require("../../models/Notification");
 const sendNotification = require("../../helpers/fcm");
 
 exports.sendNotificationToCustomerByOrderStatus = async (orderId, status) => {
+
+  console.log("DEBUG >> orderId received:", orderId);
+  console.log("DEBUG >> typeof orderId:", typeof orderId);
+  console.log("DEBUG >> isValidObjectId:", mongoose.Types.ObjectId.isValid(orderId));
+  
   try {
     if (!mongoose.Types.ObjectId.isValid(orderId)) {
       console.warn("❌ orderId tidak valid:", orderId);
