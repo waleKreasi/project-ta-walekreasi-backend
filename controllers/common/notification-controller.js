@@ -2,26 +2,37 @@ const sendNotification = require("../../helpers/fcm");
 const Order = require("../../models/Order");
 const User = require("../../models/User");
 
+// ✅ Pesan status dalam bahasa Indonesia
+const statusMessages = {
+  pending: "⌛ Pesanan Anda sedang menunggu konfirmasi. Mohon ditunggu.",
+  processing: "📦 Pesanan Anda sedang diproses. Kami akan segera mengirimkannya.",
+  shipped: "🚚 Pesanan Anda sedang dalam perjalanan. Mohon bersiap untuk menerima paket.",
+  delivered: "🫴Pesanan Anda telah diterima. Terima kasih telah berbelanja bersama kami!",
+  rejected: "❌ Maaf, pesanan Anda tidak dapat diproses. Silakan cek detail pesanan untuk informasi lebih lanjut.",
+};
+
+// ✅ Kirim notifikasi berdasarkan status pesanan
 const sendNotificationToCustomerByOrderStatus = async (orderId, status) => {
   try {
     console.log("✅ Running sendNotificationToCustomerByOrderStatus");
 
     const order = await Order.findById(orderId).populate("userId");
     if (!order || !order.userId) {
-      console.log("❌ Order or user not found");
+      console.log("❌ Order atau user tidak ditemukan");
       return;
     }
 
     const fcmToken = order.userId.fcmToken;
     if (!fcmToken) {
-      console.log("❌ FCM token not available for user");
+      console.log("❌ Token FCM tidak tersedia untuk user ini");
       return;
     }
 
-    // Gunakan helper sendNotification
+    const messageBody = statusMessages[status] || `Status pesanan Anda saat ini: ${status}`;
+
     await sendNotification(fcmToken, {
-      title: "Status Pesanan Diperbarui",
-      body: `Pesanan Anda sekarang berstatus ${status}`,
+      title: "📢 Status Pesanan Anda",
+      body: messageBody,
       data: {
         orderId: orderId.toString(),
         status: status,
@@ -34,10 +45,10 @@ const sendNotificationToCustomerByOrderStatus = async (orderId, status) => {
   }
 };
 
-// ✅ Handler untuk menyimpan token FCM user
+// ✅ Simpan token FCM user saat login atau refresh
 const sendNotificationHandler = async (req, res) => {
   try {
-    const userId = req.user.id; // Didapat dari middleware auth
+    const userId = req.user.id;
     const { token } = req.body;
 
     if (!token) {
