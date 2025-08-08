@@ -52,8 +52,6 @@ const getOrderDetailsForSeller = async (req, res) => {
   }
 };
 
-
-
 const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -67,7 +65,6 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
-    // ✅ Validasi ID secara struktur MongoDB
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
@@ -85,8 +82,8 @@ const updateOrderStatus = async (req, res) => {
 
     await Order.findByIdAndUpdate(id, { orderStatus });
 
-    // ✅ Pastikan kamu tidak mengirim req secara tak sengaja
-    await sendNotificationToCustomerByOrderStatus(id, orderStatus);
+    // ✅ Kirim notifikasi dengan _id yang sudah pasti valid
+    await sendNotificationToCustomerByOrderStatus(order._id, orderStatus);
 
     return res.status(200).json({
       success: true,
@@ -101,6 +98,7 @@ const updateOrderStatus = async (req, res) => {
     });
   }
 };
+
 
 
 
