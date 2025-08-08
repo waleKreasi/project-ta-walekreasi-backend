@@ -1,5 +1,6 @@
 const Order = require("../../models/Order");
 const { sendNotificationToCustomerByOrderStatus } = require("../common/notification-controller");
+const mongoose = require("mongoose"); // tambahkan jika belum
 
 const getAllOrdersOfAllUsers = async (req, res) => {
   try {
@@ -51,6 +52,8 @@ const getOrderDetailsForSeller = async (req, res) => {
   }
 };
 
+
+
 const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -64,7 +67,8 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
-    if (!id || id.length < 12) {
+    // ✅ Validasi ID secara struktur MongoDB
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
         message: "ID pesanan tidak valid!",
@@ -81,6 +85,7 @@ const updateOrderStatus = async (req, res) => {
 
     await Order.findByIdAndUpdate(id, { orderStatus });
 
+    // ✅ Pastikan kamu tidak mengirim req secara tak sengaja
     await sendNotificationToCustomerByOrderStatus(id, orderStatus);
 
     return res.status(200).json({
@@ -96,6 +101,7 @@ const updateOrderStatus = async (req, res) => {
     });
   }
 };
+
 
 
 module.exports = {
