@@ -1,7 +1,6 @@
 const admin = require("firebase-admin");
 
-// Ambil dari environment variable
-const serviceAccount = JSON.parse(process.env.FIREBASE_CONFIG); // Ubah di Railway
+const serviceAccount = JSON.parse(process.env.FIREBASE_CONFIG);
 
 if (!admin.apps.length) {
   admin.initializeApp({
@@ -11,19 +10,23 @@ if (!admin.apps.length) {
 
 const sendNotification = async (fcmToken, payload) => {
   try {
-    const response = await admin.messaging().send({
+    const message = {
       token: fcmToken,
       notification: {
-        title: payload.title,
-        body: payload.body,
+        title: payload.title || "Notifikasi Baru",
+        body: payload.body || "",
       },
-      data: payload.data || {}, // Optional
-    });
+      data: {
+        orderId: String(payload.data?.orderId || ""),
+        type: String(payload.data?.type || ""),
+      },
+    };
 
-    console.log("Notifikasi berhasil dikirim:", response);
+    const response = await admin.messaging().send(message);
+    console.log("✅ Notifikasi berhasil dikirim:", response);
     return response;
   } catch (error) {
-    console.error("Gagal kirim notifikasi:", error);
+    console.error("❌ Gagal kirim notifikasi:", error);
     throw error;
   }
 };
