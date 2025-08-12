@@ -5,6 +5,7 @@ const Cart = require("../../models/Cart");
 const Product = require("../../models/Product");
 const User = require("../../models/User");
 const Seller = require("../../models/Seller");
+const { sendOrderNotificationToSeller } = require("../common/notification-controller"); 
 
 // Membuat pesanan dan token Midtrans Snap
 const createOrder = async (req, res) => {
@@ -18,9 +19,9 @@ const createOrder = async (req, res) => {
       cartItems.map(async (item) => {
         const product = await Product.findById(item.productId);
         if (!product) throw new Error(`Produk tidak ditemukan: ${item.productId}`);
-    
+
         const seller = await Seller.findById(product.sellerId);
-    
+
         return {
           productId: product._id.toString(),
           sellerId: product.sellerId,
@@ -33,7 +34,6 @@ const createOrder = async (req, res) => {
         };
       })
     );
-    
 
     const totalAmount = updatedCartItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
@@ -58,13 +58,20 @@ const createOrder = async (req, res) => {
       cartId,
       cartItems: updatedCartItems,
       addressInfo: formattedAddressInfo,
-      orderStatus: "pending", // ✅ enum standardized
+      orderStatus: "pending",
       paymentStatus: "Belum Dibayar",
       totalAmount,
       orderDate: new Date(),
     });
 
     await newOrder.save();
+
+    // ✅ Kirim notifikasi ke seller
+    try {
+      await sendOrderNotificationToSeller(newOrder._id);
+    } catch (notifyErr) {
+      console.error("❌ Gagal mengirim notifikasi ke seller:", notifyErr.message);
+    }
 
     const transaction = await snap.createTransaction({
       transaction_details: {
@@ -100,7 +107,7 @@ const createOrder = async (req, res) => {
   }
 };
 
-// Konfirmasi manual (tanpa webhook)
+// ... fungsi lain tetap sama (tidak diubah)
 const capturePayment = async (req, res) => {
   try {
     const { orderId, transactionStatus } = req.body;
@@ -143,7 +150,6 @@ const capturePayment = async (req, res) => {
   }
 };
 
-// Webhook Midtrans
 const midtransCallback = async (req, res) => {
   try {
     const rawBody = req.body.toString("utf8");
@@ -170,8 +176,6 @@ const midtransCallback = async (req, res) => {
   }
 };
 
-
-// Mendapatkan semua pesanan berdasarkan user
 const getAllOrdersByUser = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -199,7 +203,6 @@ const getAllOrdersByUser = async (req, res) => {
   }
 };
 
-// Mendapatkan detail pesanan berdasarkan ID
 const getOrderDetails = async (req, res) => {
   try {
     const { id } = req.params;

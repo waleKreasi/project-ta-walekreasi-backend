@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../../models/User");
 const Seller = require("../../models/Seller");
+const { sendWelcomeNotificationToCustomer } = require("../common/notification-controller"); 
 
 const JWT_SECRET = "PTA|HPL|wkPWA-2025";
 
@@ -25,19 +26,48 @@ const setTokenCookie = (res, token) => {
 
 // === Auth ===
 const registerUser = async (req, res) => {
-  const { userName, email, password, phoneNumber } = req.body;
+  const { userName, email, password, phoneNumber, fcmToken } = req.body;
 
   try {
+    // Cek apakah email sudah terdaftar
     const exists = await User.findOne({ email });
-    if (exists) return res.status(400).json({ success: false, message: "Email sudah terdaftar!" });
+    if (exists) {
+      return res.status(400).json({
+        success: false,
+        message: "Email sudah terdaftar!"
+      });
+    }
 
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
-    await User.create({ userName, email, password: hashedPassword, phoneNumber });
 
-    res.status(201).json({ success: true, message: "Pendaftaran berhasil" });
+    // Simpan user baru
+    const newUser = await User.create({
+      userName,
+      email,
+      password: hashedPassword,
+      phoneNumber,
+      fcmToken,
+      role: "customer" // default ke customer
+    });
+
+    // Kirim welcome notification (hanya untuk customer)
+    if (newUser.role === "customer") {
+      await sendWelcomeNotificationToCustomer(newUser._id);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Pendaftaran berhasil",
+      user: newUser
+    });
+
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ success: false, message: "Terjadi kesalahan" });
+    console.error("❌ registerUser error:", e);
+    res.status(500).json({
+      success: false,
+      message: "Terjadi kesalahan"
+    });
   }
 };
 
