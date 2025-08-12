@@ -52,21 +52,35 @@ const sendOrderNotificationToSeller = async (orderId) => {
   try {
     console.log("📢 sendOrderNotificationToSeller running...");
 
+    // Menggunakan populate untuk mengambil data seller
+    // dan juga data user (customer) untuk notifikasi
     const order = await Order.findById(orderId)
       .populate("sellerId")
-      .populate("userId", "name"); // customer name
+      .populate("userId", "name"); // Mengambil nama customer
 
-    if (!order || !order.sellerId) {
-      console.log("❌ Order atau seller tidak ditemukan");
+    // ✅ Langkah 1: Memeriksa keberadaan Order dan Seller
+    if (!order) {
+      console.log("❌ Order tidak ditemukan. ID:", orderId);
       return;
     }
+    if (!order.sellerId) {
+      console.log("❌ Order ditemukan, tetapi tidak ada sellerId.");
+      return;
+    }
+
+    // ✅ Langkah 2: Log untuk verifikasi ID Seller dan token
+    console.log("ℹ️ ID Seller dari Order:", order.sellerId._id);
+    console.log("ℹ️ Token FCM dari Database:", order.sellerId.fcmToken);
 
     const fcmToken = order.sellerId.fcmToken;
-    if (!fcmToken) {
-      console.log("❌ Token FCM tidak tersedia untuk seller ini");
+
+    // ✅ Langkah 3: Memeriksa apakah token FCM valid
+    if (!fcmToken || typeof fcmToken !== 'string') {
+      console.log("❌ Token FCM tidak valid atau tidak tersedia untuk seller ini.");
       return;
     }
 
+    // ✅ Langkah 4: Mengirim notifikasi
     await sendNotification(fcmToken, {
       title: "🛒 Pesanan Baru Diterima",
       body: `Anda mendapatkan pesanan baru dari ${order.userId?.name || "customer"}.`,
@@ -76,7 +90,7 @@ const sendOrderNotificationToSeller = async (orderId) => {
       },
     });
 
-    console.log("✅ Notifikasi seller berhasil dikirim");
+    console.log("✅ Notifikasi seller berhasil dikirim.");
   } catch (error) {
     console.error("❌ Gagal mengirim notifikasi ke seller:", error.message);
   }
@@ -88,16 +102,26 @@ const sendWelcomeNotificationToCustomer = async (userId) => {
     console.log("📢 sendWelcomeNotificationToCustomer running...");
 
     const user = await User.findById(userId);
+
     if (!user) {
-      console.log("❌ User tidak ditemukan");
+      console.log("❌ User tidak ditemukan. ID:", userId);
       return;
     }
 
+    // ✅ Langkah 1: Tambahkan log untuk verifikasi token FCM
+    console.log("ℹ️ User ID:", user._id);
+    console.log("ℹ️ FCM Token yang ditemukan:", user.fcmToken);
+
+    // ✅ Langkah 2: Periksa ketersediaan token secara ketat
+    // Jika token belum ada, jangan kirim notifikasi dan log pesan yang jelas
     if (!user.fcmToken) {
-      console.log("❌ Token FCM tidak tersedia untuk user ini");
+      console.log("⚠️ Token FCM belum tersedia saat pendaftaran, notifikasi ditunda.");
+      // Anda bisa menambahkan logika di sini untuk mencoba lagi nanti (retry mechanism)
+      // atau menyimpan notifikasi sebagai "pending" di database
       return;
     }
 
+    // ✅ Langkah 3: Kirim notifikasi jika token tersedia
     await sendNotification(user.fcmToken, {
       title: "👋 Selamat Datang di WaleKreasi",
       body: `Halo ${user.name || "Customer"}, terima kasih telah bergabung. Selamat berbelanja!`,
@@ -106,7 +130,7 @@ const sendWelcomeNotificationToCustomer = async (userId) => {
       },
     });
 
-    console.log("✅ Welcome notification berhasil dikirim");
+    console.log("✅ Welcome notification berhasil dikirim.");
   } catch (error) {
     console.error("❌ Gagal mengirim welcome notification:", error.message);
   }
