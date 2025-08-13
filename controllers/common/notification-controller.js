@@ -55,6 +55,7 @@ const sendOrderNotificationToSeller = async (orderId) => {
     // Menggunakan populate untuk mengambil data seller
     // dan juga data user (customer) untuk notifikasi
     const order = await Order.findById(orderId)
+      // Populate field 'sellerId' dari model Order
       .populate("sellerId")
       .populate("userId", "name"); // Mengambil nama customer
 
@@ -67,20 +68,26 @@ const sendOrderNotificationToSeller = async (orderId) => {
       console.log("❌ Order ditemukan, tetapi tidak ada sellerId.");
       return;
     }
+    
+    // ✅ Langkah 2: Mengambil dokumen User yang terkait dengan sellerId
+    // Token FCM disimpan di model User, jadi kita perlu mengambilnya dari sana
+    const sellerUser = await User.findById(order.sellerId.user);
 
-    // ✅ Langkah 2: Log untuk verifikasi ID Seller dan token
-    console.log("ℹ️ ID Seller dari Order:", order.sellerId._id);
-    console.log("ℹ️ Token FCM dari Database:", order.sellerId.fcmToken);
+    if (!sellerUser) {
+      console.log("❌ User dari seller tidak ditemukan.");
+      return;
+    }
 
-    const fcmToken = order.sellerId.fcmToken;
+    // ✅ Langkah 3: Mengambil token FCM dari dokumen User
+    const fcmToken = sellerUser.fcmToken;
 
-    // ✅ Langkah 3: Memeriksa apakah token FCM valid
+    // ✅ Langkah 4: Memeriksa apakah token FCM valid
     if (!fcmToken || typeof fcmToken !== 'string') {
       console.log("❌ Token FCM tidak valid atau tidak tersedia untuk seller ini.");
       return;
     }
 
-    // ✅ Langkah 4: Mengirim notifikasi
+    // ✅ Langkah 5: Mengirim notifikasi
     await sendNotification(fcmToken, {
       title: "🛒 Pesanan Baru Diterima",
       body: `Anda mendapatkan pesanan baru dari ${order.userId?.name || "customer"}.`,
@@ -108,21 +115,14 @@ const sendWelcomeNotificationToCustomer = async (userId) => {
       return;
     }
 
-    // ✅ Langkah 1: Tambahkan log untuk verifikasi token FCM
-    console.log("ℹ️ User ID:", user._id);
-    console.log("ℹ️ FCM Token yang ditemukan:", user.fcmToken);
+    const fcmToken = user.fcmToken;
 
-    // ✅ Langkah 2: Periksa ketersediaan token secara ketat
-    // Jika token belum ada, jangan kirim notifikasi dan log pesan yang jelas
-    if (!user.fcmToken) {
+    if (!fcmToken || typeof fcmToken !== 'string') {
       console.log("⚠️ Token FCM belum tersedia saat pendaftaran, notifikasi ditunda.");
-      // Anda bisa menambahkan logika di sini untuk mencoba lagi nanti (retry mechanism)
-      // atau menyimpan notifikasi sebagai "pending" di database
       return;
     }
 
-    // ✅ Langkah 3: Kirim notifikasi jika token tersedia
-    await sendNotification(user.fcmToken, {
+    await sendNotification(fcmToken, {
       title: "👋 Selamat Datang di WaleKreasi",
       body: `Halo ${user.name || "Customer"}, terima kasih telah bergabung. Selamat berbelanja!`,
       data: {
