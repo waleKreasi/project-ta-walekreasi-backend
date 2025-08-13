@@ -3,40 +3,60 @@ const Order = require("../../models/Order");
 
 const getAdminDashboardStats = async (req, res) => {
   try {
+    // 1. Ambil jumlah seller dan customer
     const sellerCount = await User.countDocuments({ role: "seller" });
     const customerCount = await User.countDocuments({ role: "customer" });
 
-    // Ambil 6 minggu terakhir
+    // 2. Tentukan rentang waktu untuk data mingguan (7 hari terakhir)
     const now = new Date();
-    const sixWeeksAgo = new Date(now);
-    sixWeeksAgo.setDate(now.getDate() - 42);
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(now.getDate() - 7);
 
-    const orders = await Order.find({ createdAt: { $gte: sixWeeksAgo } });
-
-    const performance = {};
-
-    orders.forEach((order) => {
-      const weekNumber = Math.ceil(
-        (now - order.createdAt) / (7 * 24 * 60 * 60 * 1000)
-      );
-      const label = `Minggu -${weekNumber}`;
-      if (!performance[label]) performance[label] = 0;
-      performance[label]++;
+    // 3. Ambil semua pesanan (orders) dalam 7 hari terakhir
+    const weeklyOrders = await Order.find({
+      createdAt: { $gte: sevenDaysAgo },
+      status: { $ne: "canceled" }, // Menghindari pesanan yang dibatalkan
     });
 
-    const weeklyPerformance = Object.entries(performance).map(([week, orders]) => ({
-      week,
-      orders,
+    // 4. Hitung total pendapatan dan total pesanan mingguan
+    const totalRevenue = weeklyOrders.reduce((sum, order) => sum + order.totalPrice, 0);
+    const totalOrders = weeklyOrders.length;
+    
+    // 5. Olah data mingguan per hari
+    const dailyStats = await Order.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: sevenDaysAgo },
+          status: { $ne: "canceled" }
+        }
+      },
+      {
+        $group: {
+          _id: { $dayOfWeek: "$createdAt" },
+          totalRevenue: { $sum: "$totalPrice" },
+          totalOrders: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { _id: 1 }
+      }
+    ]);
+    
+    // 6. Siapkan data untuk grafik
+    const weeklyRevenue = dailyStats.map(stat => ({
+      day: ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][stat._id],
+      revenue: stat.totalRevenue,
     }));
-
-    weeklyPerformance.sort((a, b) => a.week.localeCompare(b.week));
-
+    
+    // 7. Kirim semua data ke front-end
     res.status(200).json({
       success: true,
       data: {
         sellerCount,
         customerCount,
-        weeklyPerformance,
+        totalRevenue,
+        totalOrders,
+        weeklyRevenue,
       },
     });
   } catch (error) {
