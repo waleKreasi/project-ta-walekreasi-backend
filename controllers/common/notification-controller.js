@@ -52,14 +52,10 @@ const sendOrderNotificationToSeller = async (orderId) => {
   try {
     console.log("📢 sendOrderNotificationToSeller running...");
 
-    // Menggunakan populate untuk mengambil data seller
-    // dan juga data user (customer) untuk notifikasi
     const order = await Order.findById(orderId)
-      // Populate field 'sellerId' dari model Order
       .populate("sellerId")
-      .populate("userId", "name"); // Mengambil nama customer
+      .populate("userId", "name"); 
 
-    // ✅ Langkah 1: Memeriksa keberadaan Order dan Seller
     if (!order) {
       console.log("❌ Order tidak ditemukan. ID:", orderId);
       return;
@@ -69,8 +65,6 @@ const sendOrderNotificationToSeller = async (orderId) => {
       return;
     }
     
-    // ✅ Langkah 2: Mengambil dokumen User yang terkait dengan sellerId
-    // Token FCM disimpan di model User, jadi kita perlu mengambilnya dari sana
     const sellerUser = await User.findById(order.sellerId.user);
 
     if (!sellerUser) {
@@ -78,16 +72,13 @@ const sendOrderNotificationToSeller = async (orderId) => {
       return;
     }
 
-    // ✅ Langkah 3: Mengambil token FCM dari dokumen User
     const fcmToken = sellerUser.fcmToken;
 
-    // ✅ Langkah 4: Memeriksa apakah token FCM valid
     if (!fcmToken || typeof fcmToken !== 'string') {
       console.log("❌ Token FCM tidak valid atau tidak tersedia untuk seller ini.");
       return;
     }
 
-    // ✅ Langkah 5: Mengirim notifikasi
     await sendNotification(fcmToken, {
       title: "🛒 Pesanan Baru Diterima",
       body: `Anda mendapatkan pesanan baru dari ${order.userId?.name || "customer"}.`,
@@ -118,7 +109,7 @@ const sendWelcomeNotificationToCustomer = async (userId) => {
     const fcmToken = user.fcmToken;
 
     if (!fcmToken || typeof fcmToken !== 'string') {
-      console.log("⚠️ Token FCM belum tersedia saat pendaftaran, notifikasi ditunda.");
+      console.log("⚠️ Token FCM tidak valid atau tidak tersedia. Notifikasi tidak dapat dikirim.");
       return;
     }
 
@@ -148,12 +139,28 @@ const sendNotificationHandler = async (req, res) => {
         .json({ success: false, message: "Token FCM tidak tersedia" });
     }
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { fcmToken: token },
-      { new: true }
-    );
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User tidak ditemukan" });
+    }
+    
+    // ✅ PENTING: Cek apakah ini login pertama user DAN welcome notification belum dikirim
+    // Asumsi: Anda memiliki field 'isNewUser' atau 'welcomeNotificationSent' di model User
+    const isNewUser = !user.welcomeNotificationSent; // Asumsi: field ini true jika notif belum dikirim
 
+    // Update token FCM
+    user.fcmToken = token;
+    if (isNewUser) {
+      user.welcomeNotificationSent = true;
+    }
+    await user.save();
+
+    // ✅ Jika ini adalah login pertama user, kirim notifikasi selamat datang
+    if (isNewUser) {
+        console.log("🚀 Memicu notifikasi selamat datang untuk pengguna baru.");
+        await sendWelcomeNotificationToCustomer(userId);
+    }
+    
     res.status(200).json({
       success: true,
       message: "Token FCM berhasil disimpan",
