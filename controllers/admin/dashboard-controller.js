@@ -9,30 +9,20 @@ const getAdminDashboardStats = async (req, res) => {
 
     // 2. Tentukan rentang waktu untuk data mingguan (7 hari terakhir)
     const now = new Date();
-    const sevenDaysAgo = new Date(now);
-    sevenDaysAgo.setDate(now.getDate() - 7);
+    const sevenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
 
-    // 3. Ambil semua pesanan (orders) dalam 7 hari terakhir
-    const weeklyOrders = await Order.find({
-      createdAt: { $gte: sevenDaysAgo },
-      status: { $ne: "canceled" }, // Menghindari pesanan yang dibatalkan
-    });
-
-    // 4. Hitung total pendapatan dan total pesanan mingguan
-    const totalRevenue = weeklyOrders.reduce((sum, order) => sum + order.totalPrice, 0);
-    const totalOrders = weeklyOrders.length;
-    
-    // 5. Olah data mingguan per hari
-    const dailyStats = await Order.aggregate([
+    // 3. Gunakan aggregation pipeline tunggal untuk mendapatkan semua data yang relevan
+    const weeklyStats = await Order.aggregate([
       {
         $match: {
           createdAt: { $gte: sevenDaysAgo },
-          status: { $ne: "canceled" }
-        }
+          // Filter pesanan hanya yang statusnya paid atau delivered
+          status: { $in: ["paid", "delivered"] },
+        },
       },
       {
         $group: {
-          _id: { $dayOfWeek: "$createdAt" },
+          _id: { $dayOfWeek: "$createdAt" }, // Mengelompokkan berdasarkan hari (1=Minggu, 7=Sabtu)
           totalRevenue: { $sum: "$totalPrice" },
           totalOrders: { $sum: 1 },
         },
@@ -42,13 +32,20 @@ const getAdminDashboardStats = async (req, res) => {
       }
     ]);
     
-    // 6. Siapkan data untuk grafik
-    const weeklyRevenue = dailyStats.map(stat => ({
-      day: ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][stat._id],
+    // 4. Hitung total revenue dan total orders dari hasil aggregation
+    const totalRevenue = weeklyStats.reduce((sum, stat) => sum + stat.totalRevenue, 0);
+    const totalOrders = weeklyStats.reduce((sum, stat) => sum + stat.totalOrders, 0);
+
+    // 5. Ubah format data harian agar sesuai dengan Recharts dan JavaScript (0=Minggu, 6=Sabtu)
+    const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const weeklyRevenue = weeklyStats.map(stat => ({
+      // $dayOfWeek MongoDB mengembalikan 1 untuk Minggu, 2 untuk Senin, dst.
+      // Kita kurangi 1 agar sesuai dengan indeks array JavaScript (0-6)
+      day: dayNames[stat._id - 1], 
       revenue: stat.totalRevenue,
     }));
     
-    // 7. Kirim semua data ke front-end
+    // 6. Kirim semua data ke front-end
     res.status(200).json({
       success: true,
       data: {
