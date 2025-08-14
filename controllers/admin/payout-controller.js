@@ -151,12 +151,25 @@ const getPayoutHistoryBySeller = async (req, res) => {
 const getAllPayoutHistory = async (req, res) => {
   try {
     const histories = await SellerPayoutHistory.find({})
-      .populate("sellerId", "storeName") // Populate untuk mendapatkan nama toko
+      .populate("sellerId", "storeName")
       .sort({ paidAt: -1 });
+
+    // Periksa dan konversi paidAt jika diperlukan
+    const formattedHistories = histories.map(history => {
+        // Jika paidAt adalah objek BSON, konversi ke JavaScript Date
+        const paidAtDate = history.paidAt && history.paidAt.$date
+            ? new Date(parseInt(history.paidAt.$date.$numberLong))
+            : history.paidAt;
+
+        return {
+            ...history.toObject(), // Pastikan objek dapat diubah
+            paidAt: paidAtDate
+        };
+    });
 
     res.status(200).json({
       success: true,
-      data: histories,
+      data: formattedHistories,
     });
   } catch (err) {
     console.error("Error fetching all payout history:", err);
