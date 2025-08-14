@@ -1,6 +1,6 @@
 const Order = require("../../models/Order");
 const SellerPayoutHistory = require("../../models/Payout");
-const User = require("../../models/User"); 
+const User = require("../../models/User");
 
 // Endpoint 1: Mendapatkan daftar ringkasan seller yang perlu dibayar
 const getUnpaidSellersForPayout = async (req, res) => {
@@ -45,6 +45,14 @@ const getUnpaidOrdersBySellerId = async (req, res) => {
   try {
     const { sellerId } = req.params;
 
+    // Tambahkan validasi di sini untuk memastikan sellerId valid
+    if (!sellerId || sellerId === 'undefined') {
+      return res.status(400).json({
+        success: false,
+        message: "ID Seller tidak valid atau tidak ditemukan."
+      });
+    }
+
     const orders = await Order.find({
       sellerId: sellerId,
       paymentStatus: "Terbayar",
@@ -52,7 +60,7 @@ const getUnpaidOrdersBySellerId = async (req, res) => {
     }).populate("sellerId", "storeName");
 
     if (!orders || orders.length === 0) {
-      const seller = await User.findById(sellerId, 'storeName'); // Cari nama seller meski tidak ada pesanan
+      const seller = await User.findById(sellerId, 'storeName');
       const sellerName = seller ? seller.storeName : 'Seller Tidak Ditemukan';
       return res.status(200).json({ success: true, data: { sellerName, orders: [] } });
     }
