@@ -1,9 +1,10 @@
 const express = require("express");
 const {
-  getUnpaidSellersForPayout,  // 👈 Ubah nama fungsi
-  getUnpaidOrdersBySellerId,  // 👈 Tambahkan fungsi baru
+  getUnpaidSellersForPayout,
+  getUnpaidOrdersBySellerId,
   markOrdersPaidToSeller,
-  getPayoutHistoryBySeller,   // 👈 Tambahkan fungsi baru
+  getPayoutHistoryBySeller,
+  getAllPayoutHistory, // Impor fungsi baru
 } = require("../../controllers/admin/payout-controller");
 const {
   authMiddleware,
@@ -23,5 +24,8 @@ router.post("/mark-paid", authMiddleware, isAdmin, markOrdersPaidToSeller);
 
 // Endpoint untuk mendapatkan riwayat pembayaran per seller
 router.get("/history/:sellerId", authMiddleware, isAdmin, getPayoutHistoryBySeller);
+
+// Endpoint baru untuk mendapatkan SEMUA riwayat pembayaran
+router.get("/history/all", authMiddleware, isAdmin, getAllPayoutHistory);
 
 module.exports = router;

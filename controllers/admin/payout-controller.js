@@ -147,9 +147,27 @@ const getPayoutHistoryBySeller = async (req, res) => {
   }
 };
 
+// Endpoint BARU: Mendapatkan SEMUA riwayat pembayaran untuk semua seller
+const getAllPayoutHistory = async (req, res) => {
+  try {
+    const histories = await SellerPayoutHistory.find({})
+      .populate("sellerId", "storeName") // Populate untuk mendapatkan nama toko
+      .sort({ paidAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: histories,
+    });
+  } catch (err) {
+    console.error("Error fetching all payout history:", err);
+    res.status(500).json({ success: false, message: "Gagal mengambil semua riwayat pembayaran." });
+  }
+};
+
 module.exports = {
   getUnpaidSellersForPayout,
   getUnpaidOrdersBySellerId,
   markOrdersPaidToSeller,
   getPayoutHistoryBySeller,
+  getAllPayoutHistory, // Pastikan fungsi ini diekspor
 };
