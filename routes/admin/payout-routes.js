@@ -4,7 +4,7 @@ const {
   getUnpaidOrdersBySellerId,
   markOrdersPaidToSeller,
   getPayoutHistoryBySeller,
-  getAllPayoutHistory, // Impor fungsi baru
+  getAllPayoutHistory,
 } = require("../../controllers/admin/payout-controller");
 const {
   authMiddleware,
@@ -20,18 +20,16 @@ router.get("/unpaid-sellers", authMiddleware, isAdmin, getUnpaidSellersForPayout
 // Endpoint baru untuk mendapatkan detail pesanan yang belum dibayar per seller
 router.get("/unpaid-orders/:sellerId", authMiddleware, isAdmin, getUnpaidOrdersBySellerId);
 
-// Endpoint untuk menandai pembayaran (tetap sama)
-// PENTING: Tambahkan middleware upload.single('paymentProof') di sini
+// Endpoint untuk menandai pembayaran dengan middleware upload file
 router.post(
   "/mark-paid",
   authMiddleware,
   isAdmin,
-  upload.single("paymentProof"),
+  upload.single("paymentProof"), // Middleware upload di sini
   markOrdersPaidToSeller
 );
 
-// PENTING: Pindahkan rute yang lebih spesifik ini ke atas
-// Endpoint baru untuk mendapatkan SEMUA riwayat pembayaran
+// Pindahkan rute yang lebih spesifik ini ke atas
 router.get("/history/all", authMiddleware, isAdmin, getAllPayoutHistory);
 
 // Endpoint untuk mendapatkan riwayat pembayaran per seller
