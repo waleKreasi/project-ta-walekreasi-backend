@@ -22,10 +22,11 @@ router.get("/unpaid-orders/:sellerId", authMiddleware, isAdmin, getUnpaidOrdersB
 // Endpoint untuk menandai pembayaran (tetap sama)
 router.post("/mark-paid", authMiddleware, isAdmin, markOrdersPaidToSeller);
 
-// Endpoint untuk mendapatkan riwayat pembayaran per seller
-router.get("/history/:sellerId", authMiddleware, isAdmin, getPayoutHistoryBySeller);
-
+// PENTING: Pindahkan rute yang lebih spesifik ini ke atas
 // Endpoint baru untuk mendapatkan SEMUA riwayat pembayaran
 router.get("/history/all", authMiddleware, isAdmin, getAllPayoutHistory);
+
+// Endpoint untuk mendapatkan riwayat pembayaran per seller
+router.get("/history/:sellerId", authMiddleware, isAdmin, getPayoutHistoryBySeller);
 
 module.exports = router;
