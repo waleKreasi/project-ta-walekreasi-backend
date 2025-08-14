@@ -1,5 +1,6 @@
 const Order = require("../../models/Order");
 const SellerPayoutHistory = require("../../models/Payout");
+const User = require("../../models/User"); // Pastikan model User diimpor
 
 // Mendapatkan pesanan yang sudah dibayar customer tetapi belum dibayarkan ke seller
 const getUnpaidOrdersBySeller = async (req, res) => {
@@ -7,15 +8,27 @@ const getUnpaidOrdersBySeller = async (req, res) => {
     const orders = await Order.find({
       paymentStatus: "Terbayar",
       isPaidToSeller: false,
-    });
+    }).populate("sellerId", "storeName");
 
-    // Kelompokkan berdasarkan sellerId dari level atas (bukan cartItems)
+    if (!orders || orders.length === 0) {
+      return res.status(200).json({ success: true, data: {} });
+    }
+
     const grouped = {};
-
     for (let order of orders) {
-      const sellerId = order.sellerId?.toString();
-      if (!grouped[sellerId]) grouped[sellerId] = [];
-      grouped[sellerId].push(order);
+      const seller = order.sellerId;
+      if (!seller) continue; // Skip jika data seller tidak ditemukan
+
+      const sellerId = seller._id.toString();
+      const sellerName = seller.storeName || 'Nama Seller Tidak Diketahui';
+
+      if (!grouped[sellerId]) {
+        grouped[sellerId] = {
+          sellerName: sellerName,
+          orders: [],
+        };
+      }
+      grouped[sellerId].orders.push(order);
     }
 
     res.status(200).json({ success: true, data: grouped });
@@ -60,6 +73,7 @@ const markOrdersPaidToSeller = async (req, res) => {
       sellerId,
       orders: orderIds,
       amount: totalAmount,
+      // Anda bisa menambahkan status: 'paid' di sini jika model Payout Anda memilikinya
     });
     await history.save();
 
@@ -80,8 +94,8 @@ const getPayoutHistoryBySeller = async (req, res) => {
     const { sellerId } = req.params;
 
     const histories = await SellerPayoutHistory.find({ sellerId })
-      .populate("orders", "totalAmount orderDate orderStatus paymentStatus") // optional
-      .sort({ paidAt: -1 }); // urut terbaru
+      .populate("orders", "totalAmount orderDate orderStatus paymentStatus")
+      .sort({ paidAt: -1 });
 
     res.status(200).json({
       success: true,
