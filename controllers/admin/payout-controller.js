@@ -1,51 +1,74 @@
 const Order = require("../../models/Order");
 const SellerPayoutHistory = require("../../models/Payout");
 
-// Mendapatkan pesanan yang sudah dibayar customer tetapi belum dibayarkan ke seller
-const getUnpaidOrdersBySeller = async (req, res) => {
+// Endpoint 1: Mendapatkan daftar ringkasan seller yang perlu dibayar
+const getUnpaidSellersForPayout = async (req, res) => {
   try {
-    // 1. Cari pesanan yang sudah terbayar namun belum dibayarkan ke seller
     const orders = await Order.find({
       paymentStatus: "Terbayar",
       isPaidToSeller: false,
-    }).populate("sellerId", "storeName"); // Mengambil nama toko seller
+    }).populate("sellerId", "storeName");
 
-    // Jika tidak ada pesanan, kirim respons kosong
     if (!orders || orders.length === 0) {
-      return res.status(200).json({ success: true, data: {} });
+      return res.status(200).json({ success: true, data: [] });
     }
 
-    // 2. Kelompokkan pesanan berdasarkan seller
     const grouped = {};
     for (let order of orders) {
       const seller = order.sellerId;
-      if (!seller) continue; // Lewati jika data seller tidak ditemukan
+      if (!seller) continue;
 
       const sellerId = seller._id.toString();
-      const sellerName = seller.storeName || 'Nama Seller Tidak Diketahui';
-
       if (!grouped[sellerId]) {
         grouped[sellerId] = {
-          sellerName: sellerName,
-          orders: [],
+          sellerId: sellerId,
+          sellerName: seller.storeName || 'Nama Seller Tidak Diketahui',
+          totalUnpaidOrders: 0,
+          totalAmount: 0,
         };
       }
-      grouped[sellerId].orders.push(order);
+      grouped[sellerId].totalUnpaidOrders += 1;
+      grouped[sellerId].totalAmount += order.totalAmount;
     }
 
-    res.status(200).json({ success: true, data: grouped });
+    const result = Object.values(grouped);
+    res.status(200).json({ success: true, data: result });
   } catch (err) {
-    console.error("Error grouping orders:", err);
+    console.error("Error fetching unpaid sellers:", err);
+    res.status(500).json({ success: false, message: "Gagal mengambil data seller." });
+  }
+};
+
+// Endpoint 2: Mendapatkan detail pesanan yang belum dibayar untuk seller tertentu
+const getUnpaidOrdersBySellerId = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+
+    const orders = await Order.find({
+      sellerId: sellerId,
+      paymentStatus: "Terbayar",
+      isPaidToSeller: false,
+    }).populate("sellerId", "storeName");
+
+    if (!orders || orders.length === 0) {
+      const seller = await User.findById(sellerId, 'storeName'); // Cari nama seller meski tidak ada pesanan
+      const sellerName = seller ? seller.storeName : 'Seller Tidak Ditemukan';
+      return res.status(200).json({ success: true, data: { sellerName, orders: [] } });
+    }
+    
+    const sellerName = orders[0].sellerId.storeName;
+    res.status(200).json({ success: true, data: { sellerName, orders } });
+  } catch (err) {
+    console.error("Error fetching unpaid orders by seller:", err);
     res.status(500).json({ success: false, message: "Gagal mengambil data pesanan." });
   }
 };
 
-// Menandai pesanan telah dibayar ke seller
+// Endpoint 3: Menandai pesanan telah dibayar ke seller
 const markOrdersPaidToSeller = async (req, res) => {
   try {
     const { sellerId, orderIds } = req.body;
 
-    // 1. Validasi input: pastikan orderIds adalah array yang tidak kosong
     if (!Array.isArray(orderIds) || orderIds.length === 0) {
       return res.status(400).json({
         success: false,
@@ -53,7 +76,6 @@ const markOrdersPaidToSeller = async (req, res) => {
       });
     }
 
-    // 2. Cari pesanan yang dipilih dan pastikan statusnya valid
     const orders = await Order.find({
       _id: { $in: orderIds },
       sellerId: sellerId,
@@ -61,7 +83,6 @@ const markOrdersPaidToSeller = async (req, res) => {
       isPaidToSeller: false,
     });
 
-    // Validasi: pastikan semua ID pesanan yang diberikan ditemukan dan valid
     if (orders.length !== orderIds.length) {
       return res.status(400).json({
         success: false,
@@ -69,10 +90,8 @@ const markOrdersPaidToSeller = async (req, res) => {
       });
     }
 
-    // 3. Hitung total jumlah dari pesanan yang dipilih
     const totalAmount = orders.reduce((sum, order) => sum + order.totalAmount, 0);
 
-    // 4. Perbarui status pesanan menjadi sudah dibayar ke seller
     await Order.updateMany(
       { _id: { $in: orderIds } },
       {
@@ -81,12 +100,11 @@ const markOrdersPaidToSeller = async (req, res) => {
       }
     );
 
-    // 5. Simpan riwayat pembayaran (payout)
     const history = new SellerPayoutHistory({
       sellerId,
       orders: orderIds,
       amount: totalAmount,
-      paidAt: new Date(), // Tambahkan field paidAt pada history
+      paidAt: new Date(),
     });
     await history.save();
 
@@ -101,7 +119,7 @@ const markOrdersPaidToSeller = async (req, res) => {
   }
 };
 
-// Mendapatkan riwayat pembayaran ke seller tertentu
+// Endpoint 4: Mendapatkan riwayat pembayaran ke seller tertentu
 const getPayoutHistoryBySeller = async (req, res) => {
   try {
     const { sellerId } = req.params;
@@ -121,7 +139,8 @@ const getPayoutHistoryBySeller = async (req, res) => {
 };
 
 module.exports = {
-  getUnpaidOrdersBySeller,
+  getUnpaidSellersForPayout,
+  getUnpaidOrdersBySellerId,
   markOrdersPaidToSeller,
   getPayoutHistoryBySeller,
 };
