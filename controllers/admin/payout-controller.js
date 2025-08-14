@@ -1,23 +1,25 @@
 const Order = require("../../models/Order");
 const SellerPayoutHistory = require("../../models/Payout");
-const User = require("../../models/User"); // Pastikan model User diimpor
 
 // Mendapatkan pesanan yang sudah dibayar customer tetapi belum dibayarkan ke seller
 const getUnpaidOrdersBySeller = async (req, res) => {
   try {
+    // 1. Cari pesanan yang sudah terbayar namun belum dibayarkan ke seller
     const orders = await Order.find({
       paymentStatus: "Terbayar",
       isPaidToSeller: false,
-    }).populate("sellerId", "storeName");
+    }).populate("sellerId", "storeName"); // Mengambil nama toko seller
 
+    // Jika tidak ada pesanan, kirim respons kosong
     if (!orders || orders.length === 0) {
       return res.status(200).json({ success: true, data: {} });
     }
 
+    // 2. Kelompokkan pesanan berdasarkan seller
     const grouped = {};
     for (let order of orders) {
       const seller = order.sellerId;
-      if (!seller) continue; // Skip jika data seller tidak ditemukan
+      if (!seller) continue; // Lewati jika data seller tidak ditemukan
 
       const sellerId = seller._id.toString();
       const sellerName = seller.storeName || 'Nama Seller Tidak Diketahui';
@@ -38,28 +40,39 @@ const getUnpaidOrdersBySeller = async (req, res) => {
   }
 };
 
-// Menandai pesanan telah dibayar ke seller dan menyimpan ke riwayat pembayaran
+// Menandai pesanan telah dibayar ke seller
 const markOrdersPaidToSeller = async (req, res) => {
   try {
-    const { sellerId } = req.body;
+    const { sellerId, orderIds } = req.body;
 
+    // 1. Validasi input: pastikan orderIds adalah array yang tidak kosong
+    if (!Array.isArray(orderIds) || orderIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Pilih setidaknya satu pesanan untuk dibayar.",
+      });
+    }
+
+    // 2. Cari pesanan yang dipilih dan pastikan statusnya valid
     const orders = await Order.find({
-      sellerId,
+      _id: { $in: orderIds },
+      sellerId: sellerId,
       paymentStatus: "Terbayar",
       isPaidToSeller: false,
     });
 
-    if (orders.length === 0) {
-      return res.status(404).json({
+    // Validasi: pastikan semua ID pesanan yang diberikan ditemukan dan valid
+    if (orders.length !== orderIds.length) {
+      return res.status(400).json({
         success: false,
-        message: "Tidak ada pesanan yang perlu dibayar ke seller ini.",
+        message: "Beberapa pesanan tidak valid atau sudah dibayar.",
       });
     }
 
-    const orderIds = orders.map((order) => order._id);
+    // 3. Hitung total jumlah dari pesanan yang dipilih
     const totalAmount = orders.reduce((sum, order) => sum + order.totalAmount, 0);
 
-    // Tandai pesanan sebagai sudah dibayar ke seller
+    // 4. Perbarui status pesanan menjadi sudah dibayar ke seller
     await Order.updateMany(
       { _id: { $in: orderIds } },
       {
@@ -68,12 +81,12 @@ const markOrdersPaidToSeller = async (req, res) => {
       }
     );
 
-    // Simpan ke riwayat payout
+    // 5. Simpan riwayat pembayaran (payout)
     const history = new SellerPayoutHistory({
       sellerId,
       orders: orderIds,
       amount: totalAmount,
-      // Anda bisa menambahkan status: 'paid' di sini jika model Payout Anda memilikinya
+      paidAt: new Date(), // Tambahkan field paidAt pada history
     });
     await history.save();
 
