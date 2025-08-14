@@ -10,6 +10,7 @@ const {
   authMiddleware,
   isAdmin,
 } = require("../../controllers/auth/auth-controller");
+const { upload } = require("../../helpers/cloudinary"); // Tambahkan import ini
 
 const router = express.Router();
 
@@ -20,7 +21,14 @@ router.get("/unpaid-sellers", authMiddleware, isAdmin, getUnpaidSellersForPayout
 router.get("/unpaid-orders/:sellerId", authMiddleware, isAdmin, getUnpaidOrdersBySellerId);
 
 // Endpoint untuk menandai pembayaran (tetap sama)
-router.post("/mark-paid", authMiddleware, isAdmin, markOrdersPaidToSeller);
+// PENTING: Tambahkan middleware upload.single('paymentProof') di sini
+router.post(
+  "/mark-paid",
+  authMiddleware,
+  isAdmin,
+  upload.single("paymentProof"),
+  markOrdersPaidToSeller
+);
 
 // PENTING: Pindahkan rute yang lebih spesifik ini ke atas
 // Endpoint baru untuk mendapatkan SEMUA riwayat pembayaran

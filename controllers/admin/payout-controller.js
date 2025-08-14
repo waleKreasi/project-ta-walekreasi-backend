@@ -1,6 +1,7 @@
 const Order = require("../../models/Order");
 const SellerPayoutHistory = require("../../models/Payout");
 const User = require("../../models/User");
+const { imageUploadUtil } = require("../../helpers/cloudinary"); // Mengimpor helper yang Anda buat
 
 // Endpoint 1: Mendapatkan daftar ringkasan seller yang perlu dibayar
 const getUnpaidSellersForPayout = async (req, res) => {
@@ -15,21 +16,28 @@ const getUnpaidSellersForPayout = async (req, res) => {
     }
 
     const grouped = {};
-    for (let order of orders) {
+    for (const order of orders) {
       const seller = order.sellerId;
-      if (!seller) continue;
+      if (!seller || !seller._id) {
+        console.warn("Pesanan ditemukan tanpa ID seller:", order._id);
+        continue;
+      }
 
       const sellerId = seller._id.toString();
+      const sellerName = seller.storeName || 'Nama Toko Tidak Diketahui';
+      
       if (!grouped[sellerId]) {
         grouped[sellerId] = {
           sellerId: sellerId,
-          sellerName: seller.storeName || 'Nama Seller Tidak Diketahui',
+          sellerName: sellerName,
           totalUnpaidOrders: 0,
           totalAmount: 0,
+          orders: [],
         };
       }
       grouped[sellerId].totalUnpaidOrders += 1;
       grouped[sellerId].totalAmount += order.totalAmount;
+      grouped[sellerId].orders.push(order._id);
     }
 
     const result = Object.values(grouped);
@@ -45,7 +53,6 @@ const getUnpaidOrdersBySellerId = async (req, res) => {
   try {
     const { sellerId } = req.params;
 
-    // Tambahkan validasi di sini untuk memastikan sellerId valid
     if (!sellerId || sellerId === 'undefined') {
       return res.status(400).json({
         success: false,
@@ -73,16 +80,24 @@ const getUnpaidOrdersBySellerId = async (req, res) => {
   }
 };
 
-// Endpoint 3: Menandai pesanan telah dibayar ke seller
+// Endpoint 3: Menandai pesanan telah dibayar ke seller, sekarang dengan upload file
 const markOrdersPaidToSeller = async (req, res) => {
   try {
     const { sellerId, orderIds } = req.body;
+    const paymentProofFile = req.file; // File diakses dari middleware Multer
 
     if (!Array.isArray(orderIds) || orderIds.length === 0) {
       return res.status(400).json({
         success: false,
         message: "Pilih setidaknya satu pesanan untuk dibayar.",
       });
+    }
+
+    if (!paymentProofFile) {
+        return res.status(400).json({
+            success: false,
+            message: "Bukti pembayaran harus diunggah.",
+        });
     }
 
     const orders = await Order.find({
@@ -100,6 +115,19 @@ const markOrdersPaidToSeller = async (req, res) => {
     }
 
     const totalAmount = orders.reduce((sum, order) => sum + order.totalAmount, 0);
+    let paymentProofUrl = null;
+
+    // Unggah file ke Cloudinary menggunakan helper yang Anda buat
+    try {
+        // Karena Anda menggunakan multer.memoryStorage(), file ada di req.file.buffer
+        // Anda perlu mengonversi buffer menjadi base64 string untuk diunggah
+        const base64File = `data:${paymentProofFile.mimetype};base64,${paymentProofFile.buffer.toString('base64')}`;
+        const result = await imageUploadUtil(base64File);
+        paymentProofUrl = result.secure_url;
+    } catch (uploadError) {
+        console.error("Gagal mengunggah bukti pembayaran:", uploadError);
+        return res.status(500).json({ success: false, message: "Gagal mengunggah bukti pembayaran." });
+    }
 
     await Order.updateMany(
       { _id: { $in: orderIds } },
@@ -114,6 +142,7 @@ const markOrdersPaidToSeller = async (req, res) => {
       orders: orderIds,
       amount: totalAmount,
       paidAt: new Date(),
+      paymentProofUrl, // Simpan URL bukti pembayaran
     });
     await history.save();
 
