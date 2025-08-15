@@ -1,29 +1,31 @@
 const mongoose = require("mongoose");
 
-const SellerPayoutHistorySchema = new mongoose.Schema({
+const payoutSchema = new mongoose.Schema({
   sellerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Seller",
     required: true,
   },
-  orders: [
-    {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Order",
-    },
-  ],
+  orderId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Order",
+    required: true,
+  },
   amount: {
     type: Number,
     required: true,
   },
-  paymentProofUrl: { // Field baru untuk menyimpan URL gambar
+  proofImageUrl: {
+    type: String, // URL gambar bukti pembayaran
+  },
+  status: {
     type: String,
-    required: true,
+    enum: ["pending", "paid"],
+    default: "pending",
   },
   paidAt: {
     type: Date,
-    default: Date.now,
   },
-});
+}, { timestamps: true });
 
-module.exports = mongoose.model("SellerPayoutHistory", SellerPayoutHistorySchema);
+module.exports = mongoose.model("Payout", payoutSchema);
