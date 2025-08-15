@@ -4,12 +4,9 @@ const router = express.Router();
 
 const dashboardController = require('../../controllers/seller/dashboard-controller');
 
-const {
-    authMiddleware,
-    isSeller,
-} = require('../../controllers/auth/auth-controller');
+const { isAuthenticated, isSeller, authMiddleware } = require("../../controllers/auth/auth-controller");
 
 // Route untuk mengambil data dashboard seller
-router.get("/stats", authMiddleware, isSeller, dashboardController.getSellerDashboardData);
+router.get("/stats", authMiddleware, isAuthenticated, isSeller, dashboardController.getSellerDashboardData);
 
 module.exports = router;
