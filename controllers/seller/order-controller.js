@@ -2,14 +2,17 @@ const Order = require("../../models/Order");
 const { sendNotificationToCustomerByOrderStatus } = require("../common/notification-controller");
 const mongoose = require("mongoose"); // tambahkan jika belum
 
-const getAllOrdersOfAllUsers = async (req, res) => {
+const getOrdersForSeller = async (req, res) => {
   try {
-    const orders = await Order.find({});
+    const sellerId = req.user.id; // ID seller dari middleware auth
+
+    const orders = await Order.find({ sellerId })
+      .sort({ orderDate: -1 }); // urutkan berdasarkan tanggal terbaru
 
     if (!orders.length) {
       return res.status(404).json({
         success: false,
-        message: "Tidak ada pesanan yang ditemukan",
+        message: "Tidak ada pesanan untuk toko ini",
       });
     }
 
@@ -18,13 +21,14 @@ const getAllOrdersOfAllUsers = async (req, res) => {
       data: orders,
     });
   } catch (e) {
-    console.log(e);
+    console.error(e);
     res.status(500).json({
       success: false,
-      message: "Terjadi Kesalahan!",
+      message: "Terjadi kesalahan!",
     });
   }
 };
+
 
 const getOrderDetailsForSeller = async (req, res) => {
   try {
@@ -103,7 +107,7 @@ const updateOrderStatus = async (req, res) => {
 
 
 module.exports = {
-  getAllOrdersOfAllUsers,
+  getOrdersForSeller,
   getOrderDetailsForSeller,
   updateOrderStatus,
 };
