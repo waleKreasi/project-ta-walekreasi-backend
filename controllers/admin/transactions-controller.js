@@ -2,30 +2,20 @@ const Order = require("../../models/Order");
 const Seller = require("../../models/Seller");
 const User = require("../../models/User");
 
+// Fungsi untuk mengambil semua transaksi
 const getAllTransactions = async (req, res) => {
   try {
+    // Menggunakan populate untuk mengambil data customer dan seller secara langsung
     const orders = await Order.find()
       .sort({ orderDate: -1 })
-      .populate("sellerId", "storeName email") 
+      .populate("sellerId", "storeName email") // Mengambil storeName dan email dari model Seller
+      .populate("userId", "userName email") // Mengambil userName dan email dari model User
       .lean();
-
-
-    const allUsers = await User.find({}, "_id userName email").lean();
-
-
-    const ordersWithCustomer = orders.map(order => {
-      const customer = allUsers.find(user => user._id.toString() === order.userId);
-      return {
-        ...order,
-        customerName: customer?.userName || "Tidak ditemukan",
-        customerEmail: customer?.email || "-",
-      };
-    });
 
     res.status(200).json({
       success: true,
       message: "Daftar transaksi berhasil diambil",
-      data: ordersWithCustomer,
+      data: orders,
     });
   } catch (err) {
     res.status(500).json({
@@ -36,27 +26,23 @@ const getAllTransactions = async (req, res) => {
   }
 };
 
-
+// Fungsi untuk mengambil transaksi berdasarkan ID
 const getTransactionById = async (req, res) => {
   try {
+    // Menggunakan populate untuk mengambil data customer dan seller
     const order = await Order.findById(req.params.id)
       .populate("sellerId", "storeName email")
+      .populate("userId", "userName email")
       .lean();
 
     if (!order) {
       return res.status(404).json({ success: false, message: "Transaksi tidak ditemukan" });
     }
 
-    const customer = await User.findById(order.userId).lean();
-
     res.status(200).json({
       success: true,
       message: "Detail transaksi berhasil diambil",
-      data: {
-        ...order,
-        customerName: customer?.userName || "Tidak ditemukan",
-        customerEmail: customer?.email || "-",
-      },
+      data: order,
     });
   } catch (err) {
     res.status(500).json({
