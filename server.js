@@ -75,7 +75,7 @@ app.use("/api/store/products", SellerProductsRouter);
 app.use("/api/store/orders", SellerOrderRouter);
 app.use("/api/store/profile", SellerProfileRouter);
 app.use("/api/store/dashboard", SellerDashboardRoute);
-app.use("api/store/payout", SellerPayoutRoute);
+app.use("/api/store/payout", SellerPayoutRoute);
 app.use("/api/shop/products", shopProductsRouter);
 app.use("/api/shop/cart", shopCartRouter);
 app.use("/api/shop/address", shopAddressRouter);
