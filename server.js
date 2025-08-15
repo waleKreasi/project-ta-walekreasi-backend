@@ -8,6 +8,7 @@ const authRouter = require("./routes/auth/auth-routes");
 const SellerProductsRouter = require("./routes/seller/products-routes");
 const SellerOrderRouter = require("./routes/seller/order-routes");
 const SellerProfileRouter = require("./routes/seller/profile-routes");
+const SellerDashboardRoute = require("./routes/seller/dashboard-routes")
 const shopProductsRouter = require("./routes/shop/products-routes");
 const shopCartRouter = require("./routes/shop/cart-routes");
 const shopAddressRouter = require("./routes/shop/address-routes");
@@ -69,6 +70,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/store/products", SellerProductsRouter);
 app.use("/api/store/orders", SellerOrderRouter);
 app.use("/api/store/profile", SellerProfileRouter);
+app.use("/api/store/dashboard")
 app.use("/api/shop/products", shopProductsRouter);
 app.use("/api/shop/cart", shopCartRouter);
 app.use("/api/shop/address", shopAddressRouter);
