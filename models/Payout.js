@@ -16,6 +16,10 @@ const SellerPayoutHistorySchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  paymentProofUrl: { // Field baru untuk menyimpan URL gambar
+    type: String,
+    required: true,
+  },
   paidAt: {
     type: Date,
     default: Date.now,

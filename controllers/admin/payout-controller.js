@@ -1,7 +1,7 @@
 const Order = require("../../models/Order");
 const SellerPayoutHistory = require("../../models/Payout");
 const User = require("../../models/User");
-const { imageUploadUtil } = require("../../helpers/cloudinary"); // Mengimpor helper yang Anda buat
+const { imageUploadUtil } = require("../../helpers/cloudinary");
 
 // Endpoint 1: Mendapatkan daftar ringkasan seller yang perlu dibayar
 const getUnpaidSellersForPayout = async (req, res) => {
@@ -83,13 +83,24 @@ const getUnpaidOrdersBySellerId = async (req, res) => {
 // Endpoint 3: Menandai pesanan telah dibayar ke seller, sekarang dengan upload file
 const markOrdersPaidToSeller = async (req, res) => {
   try {
-    const { sellerId, orderIds } = req.body;
-    const paymentProofFile = req.file; // File diakses dari middleware Multer
+    // Memperbaiki: Mengambil 'orders' sebagai string JSON dan mem-parse-nya
+    const { sellerId, orders: ordersJson } = req.body;
+    const paymentProofFile = req.file;
+
+    if (!ordersJson) {
+      return res.status(400).json({
+        success: false,
+        message: "Pilih setidaknya satu pesanan untuk dibayar.",
+      });
+    }
+
+    // Memperbaiki: Parsing string JSON untuk mendapatkan array
+    const orderIds = JSON.parse(ordersJson);
 
     if (!Array.isArray(orderIds) || orderIds.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Pilih setidaknya satu pesanan untuk dibayar.",
+        message: "Data pesanan tidak valid.",
       });
     }
 
@@ -117,10 +128,7 @@ const markOrdersPaidToSeller = async (req, res) => {
     const totalAmount = orders.reduce((sum, order) => sum + order.totalAmount, 0);
     let paymentProofUrl = null;
 
-    // Unggah file ke Cloudinary menggunakan helper yang Anda buat
     try {
-        // Karena Anda menggunakan multer.memoryStorage(), file ada di req.file.buffer
-        // Anda perlu mengonversi buffer menjadi base64 string untuk diunggah
         const base64File = `data:${paymentProofFile.mimetype};base64,${paymentProofFile.buffer.toString('base64')}`;
         const result = await imageUploadUtil(base64File);
         paymentProofUrl = result.secure_url;
@@ -141,8 +149,9 @@ const markOrdersPaidToSeller = async (req, res) => {
       sellerId,
       orders: orderIds,
       amount: totalAmount,
+      // Memperbaiki: Pastikan field paymentProofUrl ada di model Anda
+      paymentProofUrl,
       paidAt: new Date(),
-      paymentProofUrl, // Simpan URL bukti pembayaran
     });
     await history.save();
 
@@ -183,15 +192,13 @@ const getAllPayoutHistory = async (req, res) => {
       .populate("sellerId", "storeName")
       .sort({ paidAt: -1 });
 
-    // Periksa dan konversi paidAt jika diperlukan
     const formattedHistories = histories.map(history => {
-        // Jika paidAt adalah objek BSON, konversi ke JavaScript Date
         const paidAtDate = history.paidAt && history.paidAt.$date
             ? new Date(parseInt(history.paidAt.$date.$numberLong))
             : history.paidAt;
 
         return {
-            ...history.toObject(), // Pastikan objek dapat diubah
+            ...history.toObject(),
             paidAt: paidAtDate
         };
     });
@@ -211,5 +218,5 @@ module.exports = {
   getUnpaidOrdersBySellerId,
   markOrdersPaidToSeller,
   getPayoutHistoryBySeller,
-  getAllPayoutHistory, // Pastikan fungsi ini diekspor
+  getAllPayoutHistory,
 };
