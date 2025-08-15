@@ -9,21 +9,20 @@ const getAdminDashboardStats = async (req, res) => {
 
     // 2. Tentukan rentang waktu untuk data mingguan (7 hari terakhir)
     const now = new Date();
-    const sevenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+    const sevenDaysAgo = new Date(now.setDate(now.getDate() - 7)); // Cara yang lebih ringkas
 
-    // 3. Gunakan aggregation pipeline tunggal untuk mendapatkan semua data yang relevan
+    // 3. Gunakan aggregation pipeline untuk mendapatkan data yang relevan
     const weeklyStats = await Order.aggregate([
       {
         $match: {
           createdAt: { $gte: sevenDaysAgo },
-          // Filter pesanan hanya yang statusnya paid atau delivered
-          status: { $in: ["paid", "delivered"] },
+          status: { $in: ["terbayar","pending","prosessing","shipped","delivered"] },
         },
       },
       {
         $group: {
           _id: { $dayOfWeek: "$createdAt" }, // Mengelompokkan berdasarkan hari (1=Minggu, 7=Sabtu)
-          totalRevenue: { $sum: "$totalPrice" },
+          totalRevenue: { $sum: "$totalAmount" },
           totalOrders: { $sum: 1 },
         },
       },
@@ -36,11 +35,9 @@ const getAdminDashboardStats = async (req, res) => {
     const totalRevenue = weeklyStats.reduce((sum, stat) => sum + stat.totalRevenue, 0);
     const totalOrders = weeklyStats.reduce((sum, stat) => sum + stat.totalOrders, 0);
 
-    // 5. Ubah format data harian agar sesuai dengan Recharts dan JavaScript (0=Minggu, 6=Sabtu)
+    // 5. Ubah format data harian agar sesuai dengan chart
     const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     const weeklyRevenue = weeklyStats.map(stat => ({
-      // $dayOfWeek MongoDB mengembalikan 1 untuk Minggu, 2 untuk Senin, dst.
-      // Kita kurangi 1 agar sesuai dengan indeks array JavaScript (0-6)
       day: dayNames[stat._id - 1], 
       revenue: stat.totalRevenue,
     }));
@@ -64,4 +61,5 @@ const getAdminDashboardStats = async (req, res) => {
     });
   }
 };
+
 module.exports = { getAdminDashboardStats };
