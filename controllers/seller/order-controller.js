@@ -1,48 +1,25 @@
 const Order = require("../../models/Order");
+const Seller = require("../../models/Seller");
 const { sendNotificationToCustomerByOrderStatus } = require("../common/notification-controller");
 const mongoose = require("mongoose"); 
 
 
-const getOrdersForSeller =async (req, res) => {
+// Ambil semua order milik seller
+const getOrdersBySeller = async (req, res) => {
   try {
-    const { sellerId } = req.params;
-    const objectId = new mongoose.Types.ObjectId(sellerId);
-
-    const orders = await Order.find({ "cartItems.sellerId": objectId })
-      .populate("userId", "name email")
-      .populate("cartItems.productId", "name price images") 
-      .lean();
-
-    if (!orders.length) {
-      return res.status(200).json({
-        success: true,
-        data: [],
-        message: "Belum ada pesanan untuk toko ini.",
-      });
+    const seller = await Seller.findOne({ user: req.user.id });
+    if (!seller) {
+      return res.status(404).json({ success: false, message: "Toko tidak ditemukan." });
     }
 
-    const filteredOrders = orders.map((order) => {
-      const sellerItems = order.cartItems.filter(
-        (item) => item.sellerId.toString() === sellerId
-      );
-      return {
-        ...order,
-        cartItems: sellerItems,
-      };
-    });
-
-    res.status(200).json({
-      success: true,
-      data: filteredOrders,
-    });
-  } catch (err) {
-    console.error("Fetch seller orders error:", err);
-    res.status(500).json({
-      success: false,
-      message: "Gagal mengambil daftar pesanan seller.",
-    });
+    const listOfOrders = await Order.find({ sellerId: seller._id });
+    res.status(200).json({ success: true, data: listOfOrders });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Terjadi kesalahan saat mengambil produk" });
   }
 };
+
 
 const getOrderDetailsForSeller = async (req, res) => {
   try {
@@ -121,7 +98,7 @@ const updateOrderStatus = async (req, res) => {
 
 
 module.exports = {
-  getOrdersForSeller,
+  getOrdersBySeller,
   getOrderDetailsForSeller,
   updateOrderStatus,
 };
