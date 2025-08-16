@@ -1,48 +1,46 @@
 const Order = require("../../models/Order");
 const { sendNotificationToCustomerByOrderStatus } = require("../common/notification-controller");
 const mongoose = require("mongoose"); 
-const getOrdersForSeller = async (req, res) => {
+
+
+const getOrdersForSeller =async (req, res) => {
   try {
-    const sellerId = req.user._id; // seller yg sedang login
+    const { sellerId } = req.params;
+    const objectId = new mongoose.Types.ObjectId(sellerId);
 
-    // Cari semua order yang relevan dengan seller
-    const orders = await Order.find({
-      $or: [
-        { sellerId: sellerId }, // order langsung by sellerId
-        { "cartItems.sellerId": sellerId } // order multi-seller di cartItems
-      ]
-    }).sort({ orderDate: -1 });
+    const orders = await Order.find({ "cartItems.sellerId": objectId })
+      .populate("userId", "name email")
+      .populate("cartItems.productId", "name price images") 
+      .lean();
 
-    if (!orders || orders.length === 0) {
-      return res.status(404).json({ message: "Tidak ada pesanan untuk seller ini" });
+    if (!orders.length) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        message: "Belum ada pesanan untuk toko ini.",
+      });
     }
 
-    // Filter cartItems supaya seller hanya lihat produk miliknya
-    const filteredOrders = orders.map(order => {
-      let itemsForSeller = order.cartItems.filter(
-        item => item.sellerId?.toString() === sellerId.toString()
+    const filteredOrders = orders.map((order) => {
+      const sellerItems = order.cartItems.filter(
+        (item) => item.sellerId.toString() === sellerId
       );
-
       return {
-        _id: order._id,
-        userId: order.userId,
-        addressInfo: order.addressInfo,
-        orderStatus: order.orderStatus,
-        paymentStatus: order.paymentStatus,
-        totalAmount: order.totalAmount,
-        orderDate: order.orderDate,
-        orderUpdateDate: order.orderUpdateDate,
-        isPaidToSeller: order.isPaidToSeller,
-        paidToSellerAt: order.paidToSellerAt,
-        cartItems: itemsForSeller, // hanya item milik seller
+        ...order,
+        cartItems: sellerItems,
       };
-    }).filter(order => order.cartItems.length > 0); // buang order yg tdk ada item seller
+    });
 
-    return res.status(200).json(filteredOrders);
-
-  } catch (error) {
-    console.error("Error getOrdersForSeller:", error);
-    return res.status(500).json({ message: "Gagal mengambil pesanan seller", error: error.message });
+    res.status(200).json({
+      success: true,
+      data: filteredOrders,
+    });
+  } catch (err) {
+    console.error("Fetch seller orders error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Gagal mengambil daftar pesanan seller.",
+    });
   }
 };
 
