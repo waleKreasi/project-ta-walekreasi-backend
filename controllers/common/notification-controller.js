@@ -115,7 +115,7 @@ const sendWelcomeNotificationToCustomer = async (userId) => {
 
     await sendNotification(fcmToken, {
       title: "👋 Selamat Datang di WaleKreasi",
-      body: `Halo ${user.name || "Customer"}, terima kasih telah bergabung. Selamat berbelanja!`,
+      body: `Halo, terima kasih telah bergabung.`,
       data: {
         type: "welcome",
       },
