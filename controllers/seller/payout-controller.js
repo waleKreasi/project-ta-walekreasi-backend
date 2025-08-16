@@ -1,5 +1,5 @@
-const Seller = require("../models/seller-model");
-const SellerPayoutHistory = require("../models/sellerPayoutHistory-model");
+const Seller = require("../../models/Seller");
+const SellerPayoutHistory = require("../../models/Payout");
 
 const getSellerPayouts = async (req, res) => {
   try {

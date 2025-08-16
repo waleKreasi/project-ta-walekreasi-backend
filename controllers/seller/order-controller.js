@@ -1,7 +1,6 @@
 const Order = require("../../models/Order");
 const { sendNotificationToCustomerByOrderStatus } = require("../common/notification-controller");
-const mongoose = require("mongoose"); // tambahkan jika belum
-
+const mongoose = require("mongoose"); 
 const getOrdersForSeller = async (req, res) => {
   try {
     const sellerId = req.user._id; // seller yg sedang login
