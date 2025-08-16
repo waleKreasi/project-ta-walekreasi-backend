@@ -1,15 +1,11 @@
-const Payout = require("../../models/Payout");
-const Seller = require("../../models/Seller");
+const Seller = require("../models/seller-model");
+const SellerPayoutHistory = require("../models/sellerPayoutHistory-model");
 
-/**
- * Ambil daftar pembayaran (payout) untuk seller yang sedang login
- * Hanya menampilkan payout yang sudah dibuat admin untuk order selesai
- */
 const getSellerPayouts = async (req, res) => {
   try {
-    let sellerId = req.user?.sellerId; // gunakan jika sellerId disimpan di JWT
+    let sellerId = req.user?.sellerId; // ambil dari JWT kalau ada
 
-    // Kalau sellerId belum ada di JWT, cari dari DB berdasarkan user ID
+    // Kalau sellerId belum ada di JWT, fallback cari dari DB
     if (!sellerId) {
       const seller = await Seller.findOne({ user: req.user.id });
       if (!seller) {
@@ -21,27 +17,31 @@ const getSellerPayouts = async (req, res) => {
       sellerId = seller._id;
     }
 
-    // Ambil semua payout milik seller, urutkan dari terbaru
-    const payouts = await Payout.find({ sellerId })
-      .populate({
-        path: "orders",
-        select: "orderId totalPrice paymentStatus payoutStatus",
-      })
-      .sort({ createdAt: -1 });
+    // Cari payout berdasarkan sellerId
+    const payouts = await SellerPayoutHistory.find({ sellerId })
+      .populate("orders", "orderId totalAmount status createdAt") // populate info order
+      .populate("sellerId", "storeName user"); // populate info seller
 
-    res.status(200).json({
+    if (!payouts || payouts.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "Belum ada riwayat payout untuk seller ini",
+        payouts: [],
+      });
+    }
+
+    return res.status(200).json({
       success: true,
       payouts,
     });
   } catch (error) {
     console.error("Error getSellerPayouts:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Gagal mengambil data pembayaran seller",
+      message: "Terjadi kesalahan saat mengambil riwayat payout",
+      error: error.message,
     });
   }
 };
 
-module.exports = {
-  getSellerPayouts,
-};
+module.exports = { getSellerPayouts };

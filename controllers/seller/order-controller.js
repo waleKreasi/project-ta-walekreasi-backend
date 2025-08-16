@@ -4,31 +4,48 @@ const mongoose = require("mongoose"); // tambahkan jika belum
 
 const getOrdersForSeller = async (req, res) => {
   try {
-    const sellerId = req.user.id; // ID seller dari middleware auth
+    const sellerId = req.user._id; // seller yg sedang login
 
-    const orders = await Order.find({ sellerId })
-      .sort({ orderDate: -1 }); // urutkan berdasarkan tanggal terbaru
+    // Cari semua order yang relevan dengan seller
+    const orders = await Order.find({
+      $or: [
+        { sellerId: sellerId }, // order langsung by sellerId
+        { "cartItems.sellerId": sellerId } // order multi-seller di cartItems
+      ]
+    }).sort({ orderDate: -1 });
 
-    if (!orders.length) {
-      return res.status(404).json({
-        success: false,
-        message: "Tidak ada pesanan untuk toko ini",
-      });
+    if (!orders || orders.length === 0) {
+      return res.status(404).json({ message: "Tidak ada pesanan untuk seller ini" });
     }
 
-    res.status(200).json({
-      success: true,
-      data: orders,
-    });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({
-      success: false,
-      message: "Terjadi kesalahan!",
-    });
+    // Filter cartItems supaya seller hanya lihat produk miliknya
+    const filteredOrders = orders.map(order => {
+      let itemsForSeller = order.cartItems.filter(
+        item => item.sellerId?.toString() === sellerId.toString()
+      );
+
+      return {
+        _id: order._id,
+        userId: order.userId,
+        addressInfo: order.addressInfo,
+        orderStatus: order.orderStatus,
+        paymentStatus: order.paymentStatus,
+        totalAmount: order.totalAmount,
+        orderDate: order.orderDate,
+        orderUpdateDate: order.orderUpdateDate,
+        isPaidToSeller: order.isPaidToSeller,
+        paidToSellerAt: order.paidToSellerAt,
+        cartItems: itemsForSeller, // hanya item milik seller
+      };
+    }).filter(order => order.cartItems.length > 0); // buang order yg tdk ada item seller
+
+    return res.status(200).json(filteredOrders);
+
+  } catch (error) {
+    console.error("Error getOrdersForSeller:", error);
+    return res.status(500).json({ message: "Gagal mengambil pesanan seller", error: error.message });
   }
 };
-
 
 const getOrderDetailsForSeller = async (req, res) => {
   try {
