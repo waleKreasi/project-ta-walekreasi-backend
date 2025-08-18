@@ -8,7 +8,7 @@ const monthNames = [
   "Jul", "Agu", "Sep", "Okt", "Nov", "Des"
 ];
 
-exports.getSellerDashboardData = async (req, res) => {
+const getSellerDashboardData = async (req, res) => {
   try {
     // ✅ Ambil seller berdasarkan user yang login
     const seller = await Seller.findOne({ user: req.user.id });
@@ -65,3 +65,5 @@ exports.getSellerDashboardData = async (req, res) => {
     });
   }
 };
+
+module.exports = getSellerDashboardData;
